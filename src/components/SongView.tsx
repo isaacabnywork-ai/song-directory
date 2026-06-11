@@ -22,6 +22,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   const [transpose, setTranspose] = useState(0);
   const [fontSize, setFontSize] = useState(18);
   const [showChords, setShowChords] = useState(true);
+  const [twoColumns, setTwoColumns] = useState(true);
   
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -189,7 +190,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
       let ch = '';
       
       return (
-        <div key={lineIdx} className="flex flex-wrap items-end mb-1 md:mb-2">
+        <div key={lineIdx} className="flex flex-wrap items-end mb-1 md:mb-2 break-inside-avoid">
           {parts.map((part, partIdx) => {
             if (part.startsWith('[')) {
               const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -275,6 +276,13 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 className="svc-btn px-3 py-1.5 bg-[#e8f3ff] text-[#0b5cff] dark:bg-[rgba(38,132,255,0.15)] dark:text-[#5e9eff] text-xs font-semibold rounded border-none"
               >
                 {showChords ? 'Hide Chords' : 'Show Chords'}
+              </button>
+
+              <button 
+                onClick={() => setTwoColumns(!twoColumns)}
+                className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] border-none"
+              >
+                {twoColumns ? 'Single Column' : 'Two Columns'}
               </button>
 
               <button 
@@ -399,7 +407,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           />
         ) : (
           <div 
-            className="text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans print:text-black print:dark:text-black cursor-pointer" 
+            className={`text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans print:text-black print:dark:text-black cursor-pointer ${twoColumns ? 'md:columns-2 md:gap-12 md:[column-rule:1px_solid_#e5e7eb] dark:md:[column-rule:1px_solid_#374151]' : ''}`} 
             style={{ fontSize: `${fontSize}px` }}
             onClick={() => setIsAutoPlaying(prev => !prev)}
             title="Click to toggle autoplay"

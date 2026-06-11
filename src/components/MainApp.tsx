@@ -96,6 +96,12 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
             if (list) setCurrentPlaylist(list);
             setActiveView('song');
           }}
+          onSongAdded={(song) => {
+            setSongs([...songs, song]);
+            setCurrentSongId(song.id);
+            setCurrentPlaylist([song]);
+            setActiveView('song');
+          }}
         />
       )}
 

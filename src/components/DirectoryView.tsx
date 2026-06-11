@@ -9,9 +9,10 @@ interface DirectoryViewProps {
   initialSearch: string;
   onBack: () => void;
   onSelectSong: (id: number, currentList: Song[]) => void;
+  onSongAdded?: (song: Song) => void;
 }
 
-export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong }: DirectoryViewProps) {
+export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded }: DirectoryViewProps) {
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<'title' | 'artist' | 'year'>('title');
 
@@ -65,12 +66,21 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                   const artist = prompt('Artist:', 'SVC Worship');
                   const category = prompt('Category (e.g. Bhajan, Praise-Adoration, Chorus, Gospel, etc):', 'Bhajan');
                   if (title && artist && category) {
-                    await fetch('/api/songs', {
+                    const res = await fetch('/api/songs', {
                       method: 'POST',
                       body: JSON.stringify({ title, artist, category, year: new Date().getFullYear() }),
                       headers: { 'Content-Type': 'application/json' }
                     });
-                    window.location.reload();
+                    if (res.ok) {
+                      const newSong = await res.json();
+                      if (onSongAdded) {
+                        onSongAdded(newSong);
+                      } else {
+                        window.location.reload();
+                      }
+                    } else {
+                      alert('Failed to add song. Please try again.');
+                    }
                   }
                 }}
                 className="svc-btn h-10 px-4 flex-shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium border-none flex items-center justify-center gap-2 shadow-sm outline-none"
