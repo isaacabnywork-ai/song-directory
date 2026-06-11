@@ -23,6 +23,7 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   
   // Song view state
   const [currentSongId, setCurrentSongId] = useState<number | null>(null);
+  const [currentPlaylist, setCurrentPlaylist] = useState<Song[]>([]);
   const currentSong = useMemo(() => songs.find(s => s.id === currentSongId) || null, [songs, currentSongId]);
   
   // Sunday planner state
@@ -90,8 +91,9 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
             setSearchQuery('');
             setActiveView('menu');
           }}
-          onSelectSong={(id) => {
+          onSelectSong={(id, list) => {
             setCurrentSongId(id);
+            if (list) setCurrentPlaylist(list);
             setActiveView('song');
           }}
         />
@@ -109,6 +111,25 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
           onUpdate={(updatedSong) => {
             setSongs(songs.map(s => s.id === updatedSong.id ? updatedSong : s));
           }}
+          onDelete={(id) => {
+            setSongs(songs.filter(s => s.id !== id));
+            setSundaySongs(sundaySongs.filter(s => s.id !== id));
+            setActiveView('directory');
+          }}
+          onNext={
+            currentPlaylist.length > 1 ? () => {
+              const idx = currentPlaylist.findIndex(s => s.id === currentSong.id);
+              if (idx !== -1 && idx < currentPlaylist.length - 1) setCurrentSongId(currentPlaylist[idx + 1].id);
+            } : undefined
+          }
+          onPrev={
+            currentPlaylist.length > 1 ? () => {
+              const idx = currentPlaylist.findIndex(s => s.id === currentSong.id);
+              if (idx > 0) setCurrentSongId(currentPlaylist[idx - 1].id);
+            } : undefined
+          }
+          hasNext={currentPlaylist.findIndex(s => s.id === currentSong.id) < currentPlaylist.length - 1}
+          hasPrev={currentPlaylist.findIndex(s => s.id === currentSong.id) > 0}
         />
       )}
 

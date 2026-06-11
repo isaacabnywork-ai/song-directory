@@ -104,7 +104,7 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
 
       <div className="flex-1 max-w-4xl mx-auto w-full px-6 pt-10 pb-32 relative text-left">
         <h1 className="text-4xl md:text-5xl font-bold mb-8 text-black dark:text-white tracking-tight">{song.title}</h1>
-        <div className="text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans transition-opacity duration-200" style={{ fontSize: `${fontSize}px` }}>
+        <div className="text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans transition-opacity duration-200 md:columns-2 md:gap-12" style={{ fontSize: `${fontSize}px` }}>
           {renderLyrics()}
         </div>
       </div>

@@ -8,7 +8,7 @@ interface DirectoryViewProps {
   category: string;
   initialSearch: string;
   onBack: () => void;
-  onSelectSong: (id: number) => void;
+  onSelectSong: (id: number, currentList: Song[]) => void;
 }
 
 export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong }: DirectoryViewProps) {
@@ -110,7 +110,7 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
             {filteredSongs.map(song => (
               <div 
                 key={song.id}
-                onClick={() => onSelectSong(song.id)}
+                onClick={() => onSelectSong(song.id, filteredSongs)}
                 className="svc-btn song-card bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#333] rounded-lg p-4 hover:shadow-md group cursor-pointer"
               >
                 <div className="flex items-start justify-between">
