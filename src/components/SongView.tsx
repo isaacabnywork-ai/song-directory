@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { Song } from '@/types';
 import { 
   ArrowLeft, Minus, Plus, TextAa, PencilSimple, 
-  CalendarPlus, User, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, CaretLeft, CaretRight, Play, Pause, Gauge
+  CalendarPlus, User, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, CaretLeft, CaretRight, Play, Pause, Gauge, CornersOut, CornersIn
 } from '@phosphor-icons/react';
 
 interface SongViewProps {
@@ -23,6 +23,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   const [fontSize, setFontSize] = useState(18);
   const [showChords, setShowChords] = useState(true);
   const [twoColumns, setTwoColumns] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
@@ -33,6 +34,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(3);
   const requestRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLElement>(null);
 
   const scrollLoop = React.useCallback(() => {
     if (isAutoPlaying) {
@@ -63,6 +65,28 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await containerRef.current?.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        await document.exitFullscreen().catch(err => {
+          console.error(`Error attempting to exit full-screen mode: ${err.message}`);
+        });
+      }
+    }
+  };
+
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,7 +238,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                   <span className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.8em] font-sans h-[1.3em] leading-none select-none ${showChords ? '' : 'hidden'}`}>
                     {currentCh}
                   </span>
-                  <span className="leading-normal whitespace-pre">{part || ''}</span>
+                  <span className="leading-normal whitespace-pre-wrap break-words">{part || ''}</span>
                 </div>
               );
             }
@@ -226,8 +250,8 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   };
 
   return (
-    <main className="view-section active-view overflow-y-auto bg-white dark:bg-[#191919] pb-20 print:pb-0 print:bg-white print:text-black">
-      <div className="max-w-3xl mx-auto px-6 pt-10 print:pt-0 print:px-0">
+    <main ref={containerRef} className="view-section active-view overflow-y-auto bg-white dark:bg-[#191919] pb-20 print:pb-0 print:bg-white print:text-black">
+      <div className="max-w-5xl mx-auto px-6 pt-10 print:pt-0 print:px-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 print:hidden">
           <div className="flex items-center gap-4">
             <button 
@@ -283,6 +307,13 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] border-none"
               >
                 {twoColumns ? 'Single Column' : 'Two Columns'}
+              </button>
+
+              <button 
+                onClick={toggleFullscreen}
+                className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1 border-none"
+              >
+                {isFullscreen ? <><CornersIn weight="bold" /> <span>Exit Fullscreen</span></> : <><CornersOut weight="bold" /> <span>Fullscreen</span></>}
               </button>
 
               <button 

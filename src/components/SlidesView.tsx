@@ -55,7 +55,7 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
                   <span className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.8em] font-sans h-[1.3em] leading-none select-none ${showChords ? '' : 'hidden'}`}>
                     {currentCh}
                   </span>
-                  <span className="leading-normal whitespace-pre">{part || ''}</span>
+                  <span className="leading-normal whitespace-pre-wrap break-words">{part || ''}</span>
                 </div>
               );
             }

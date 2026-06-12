@@ -10,14 +10,18 @@ export default function LandingView({ onEnter }: { onEnter: () => void }) {
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto flex flex-col items-center">
-        <div className="w-20 h-20 bg-black dark:bg-white rounded-2xl flex items-center justify-center mb-8 shadow-2xl transform rotate-3">
-          <MusicNotes weight="fill" className="text-4xl text-white dark:text-black" />
+        <div className="flex flex-col md:flex-row items-center gap-6 mb-12 mt-4">
+          <svg width="100" height="100" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="3" className="text-black dark:text-white shrink-0">
+            <circle cx="50" cy="50" r="46" />
+            <path d="M50 22v56M32 42h36" strokeLinecap="round" />
+          </svg>
+          <div className="flex flex-col text-center md:text-left text-black dark:text-white leading-[1.1] uppercase tracking-[0.1em] font-bold">
+            <span className="text-4xl md:text-5xl">Satya Vachan</span>
+            <span className="text-4xl md:text-5xl">Church</span>
+          </div>
         </div>
         
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4 text-black dark:text-white border-none pb-0 m-0">
-          Satya Vachan Church
-        </h1>
-        <p className="text-xl md:text-2xl font-light text-gray-500 dark:text-gray-400 mb-12 mt-2">
+        <p className="text-xl md:text-2xl font-light text-gray-500 dark:text-gray-400 mb-12">
           Music Directory &amp; Resources
         </p>
 
