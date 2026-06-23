@@ -4,7 +4,8 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     const songs = await prisma.song.findMany({
-      orderBy: { title: 'asc' }
+      orderBy: { title: 'asc' },
+      include: { history: { orderBy: { sungAt: 'desc' } } }
     })
     return NextResponse.json(songs)
   } catch (error) {

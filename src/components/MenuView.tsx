@@ -42,14 +42,18 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
 
   const stats = useMemo(() => {
     const totalSongs = songs.length;
-    const sorted = [...songs].sort((a, b) => (b.sungCount || 0) - (a.sungCount || 0));
-    const topSung = sorted.slice(0, 5).filter(s => (s.sungCount || 0) > 0);
     
-    const neverSungSongs = songs.filter(s => (s.sungCount || 0) === 0);
+    const getCount = (s: Song) => s.history ? s.history.length : (s.sungCount || 0);
+    
+    const sorted = [...songs].sort((a, b) => getCount(b) - getCount(a));
+    const sungSongs = sorted.filter(s => getCount(s) > 0);
+    const topSung = sungSongs.slice(0, 5);
+    
+    const neverSungSongs = songs.filter(s => getCount(s) === 0);
     const neverSungCount = neverSungSongs.length;
     
     // Find highest sung count for proportional scaling
-    const maxSungCount = topSung.length > 0 ? topSung[0].sungCount || 1 : 1;
+    const maxSungCount = topSung.length > 0 ? getCount(topSung[0]) : 1;
 
     const neverSungByCategory = categories.map(cat => ({
       name: cat,
@@ -68,7 +72,7 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
     });
     const pieGradient = neverSungCount > 0 ? `conic-gradient(${gradientParts.join(', ')})` : '';
 
-    return { totalSongs, topSung, neverSungCount, neverSungSongs, neverSungByCategory, pieGradient, maxSungCount };
+    return { totalSongs, topSung, sungSongs, neverSungCount, neverSungSongs, neverSungByCategory, pieGradient, maxSungCount, getCount };
   }, [songs]);
 
   return (
@@ -189,12 +193,12 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
                   <div key={song.id}>
                     <div className="flex justify-between text-xs mb-1">
                       <span className="text-[#37352f] dark:text-gray-200 truncate pr-4 font-medium">{song.title}</span>
-                      <span className="text-gray-500 shrink-0 font-bold">{song.sungCount} times</span>
+                      <span className="text-gray-500 shrink-0 font-bold">{stats.getCount(song)} times</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-[#373737] rounded-full h-2">
                       <div 
                         className="bg-blue-500 h-2 rounded-full" 
-                        style={{ width: `${Math.max(5, ((song.sungCount || 0) / stats.maxSungCount) * 100)}%` }}
+                        style={{ width: `${Math.max(5, (stats.getCount(song) / stats.maxSungCount) * 100)}%` }}
                       ></div>
                     </div>
                   </div>
@@ -202,6 +206,49 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
               </div>
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 m-0 italic">No songs have been tracked yet.</p>
+            )}
+          </div>
+
+          <div className="mb-8 pt-6 border-t border-gray-200 dark:border-[#373737]">
+            <h3 className="text-sm font-bold text-[#37352f] dark:text-white mb-4 m-0 flex items-center gap-2">
+              <CalendarStar /> Song History
+            </h3>
+            {stats.sungSongs.length > 0 ? (
+              <div className="space-y-2">
+                {stats.sungSongs.map(song => (
+                  <details key={song.id} className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#373737] rounded-lg group">
+                    <summary className="flex justify-between items-center p-4 cursor-pointer list-none outline-none">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-[15px] text-[#37352f] dark:text-gray-200 group-hover:text-blue-500 transition-colors">{song.title}</span>
+                        {song.history && song.history.length > 0 && (
+                          <span className="text-xs text-gray-500 mt-1 font-medium">
+                            Last sung: {new Date(song.history[0].sungAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-[#2b2b2b] px-2.5 py-1 rounded">
+                        {stats.getCount(song)} times
+                      </span>
+                    </summary>
+                    <div className="p-4 pt-0 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-[#2b2b2b] mt-2">
+                      {song.history && song.history.length > 0 ? (
+                        <div className="space-y-1 mt-2">
+                          {song.history.map((h, i) => (
+                            <div key={h.id} className="flex gap-3 items-center py-1">
+                              <span className="w-4 text-gray-400 text-xs font-bold">{song.history!.length - i}.</span>
+                              <span>{new Date(h.sungAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="m-0 italic mt-2">Dates not recorded (legacy count).</p>
+                      )}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            ) : (
+               <p className="text-sm text-gray-500 dark:text-gray-400 m-0 italic">No song history available.</p>
             )}
           </div>
 

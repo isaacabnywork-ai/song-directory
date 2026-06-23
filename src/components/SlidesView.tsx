@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Song } from '@/types';
-import { ArrowLeft, Minus, Plus, TextAa, PencilSimple, CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { ArrowLeft, Minus, Plus, TextAa, PencilSimple, CaretLeft, CaretRight, CornersOut, CornersIn } from '@phosphor-icons/react';
 
 interface SlidesViewProps {
   songs: Song[];
@@ -13,6 +13,46 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
   const [transpose, setTranspose] = useState(0);
   const [fontSize, setFontSize] = useState(24);
   const [showChords, setShowChords] = useState(true);
+  const [twoColumns, setTwoColumns] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLElement>(null);
+  
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (!document.fullscreenElement) {
+      await containerRef.current?.requestFullscreen().catch(err => console.error(err));
+    } else {
+      if (document.exitFullscreen) await document.exitFullscreen().catch(err => console.error(err));
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    if (distance > 50 && currentIndex < songs.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+    if (distance < -50 && currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
 
   if (songs.length === 0) return null;
 
@@ -28,14 +68,13 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
       }
 
       const parts = line.split(/(\[[^\]]+\])/);
-      let ch = '';
       
       return (
-        <div key={lineIdx} className="flex flex-wrap items-end mb-1 md:mb-2">
+        <div key={lineIdx} className="mb-1 md:mb-2 break-inside-avoid leading-relaxed">
           {parts.map((part, partIdx) => {
             if (part.startsWith('[')) {
               const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-              ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
+              let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
                 let b = m;
                 if (b === 'Bb') b = 'A#';
                 if (b === 'Eb') b = 'D#';
@@ -46,17 +85,14 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
                 if (i === -1) return m;
                 return notes[(i + transpose + 12) % 12];
               });
-              return null;
-            } else if (part.length > 0 || ch) {
-              const currentCh = ch;
-              ch = '';
               return (
-                <div key={partIdx} className="inline-flex flex-col">
-                  <span className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.8em] font-sans h-[1.3em] leading-none select-none ${showChords ? '' : 'hidden'}`}>
-                    {currentCh}
-                  </span>
-                  <span className="leading-normal whitespace-pre-wrap break-words">{part || ''}</span>
-                </div>
+                <span key={partIdx} className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.9em] mx-1 select-none ${showChords ? '' : 'hidden'}`}>
+                  ({ch})
+                </span>
+              );
+            } else if (part.length > 0) {
+              return (
+                <span key={partIdx} className="whitespace-pre-wrap break-words">{part}</span>
               );
             }
             return null;
@@ -67,9 +103,16 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
   };
 
   return (
-    <main className="view-section active-view fixed inset-0 z-[100] bg-white dark:bg-[#191919] text-[#37352f] dark:text-white flex-col overflow-y-auto" style={{ display: 'flex' }}>
+    <main 
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className={`view-section active-view fixed inset-0 z-[100] bg-white dark:bg-[#191919] text-[#37352f] dark:text-white flex-col overflow-y-auto`} 
+      style={{ display: 'flex' }}
+    >
       {/* Presentation Top Toolbar */}
-      <div className="sticky top-0 left-0 right-0 bg-white/90 dark:bg-[#191919]/90 backdrop-blur-md px-6 py-4 border-b border-gray-200 dark:border-[#373737] flex flex-wrap justify-between items-center gap-4 z-50">
+      <div className={`sticky top-0 left-0 right-0 bg-white/90 dark:bg-[#191919]/90 backdrop-blur-md px-6 py-4 border-b border-gray-200 dark:border-[#373737] justify-between items-center gap-4 z-50 ${isFullscreen ? 'hidden' : 'flex flex-wrap'}`}>
         <button 
           onClick={onClose}
           className="svc-btn flex items-center justify-center text-gray-500 hover:text-black dark:hover:text-white border-none bg-transparent p-0"
@@ -96,15 +139,40 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
             {showChords ? 'Hide Chords' : 'Show Chords'}
           </button>
 
+          <button 
+            onClick={() => setTwoColumns(!twoColumns)}
+            className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] border-none"
+          >
+            {twoColumns ? 'Single Column' : 'Two Columns'}
+          </button>
+
+          <button 
+            onClick={toggleFullscreen}
+            className="svc-btn px-3 py-1.5 bg-black text-white dark:bg-white dark:text-black text-xs font-semibold rounded hover:bg-gray-800 dark:hover:bg-gray-200 flex items-center gap-1.5 border-none"
+          >
+            <CornersOut weight="bold" /> Fullscreen
+          </button>
+
           <button className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1 border-none">
             <PencilSimple weight="fill" /> <span>Edit</span>
           </button>
         </div>
       </div>
 
-      <div className="flex-1 max-w-4xl mx-auto w-full px-6 pt-10 pb-32 relative text-left">
-        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-black dark:text-white tracking-tight">{song.title}</h1>
-        <div className="text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans transition-opacity duration-200 md:columns-2 md:gap-12" style={{ fontSize: `${fontSize}px` }}>
+      <div className={`flex-1 max-w-4xl mx-auto w-full px-6 pb-32 relative text-left ${isFullscreen ? 'pt-16' : 'pt-10'}`}>
+        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-black dark:text-white tracking-tight flex justify-between items-center">
+          {song.title}
+          {isFullscreen && (
+            <button 
+              onClick={toggleFullscreen}
+              className="svc-btn p-2 text-gray-500 hover:text-black dark:hover:text-white bg-transparent border-none rounded"
+              title="Exit Fullscreen"
+            >
+              <CornersIn weight="bold" className="text-2xl" />
+            </button>
+          )}
+        </h1>
+        <div className={`text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans transition-opacity duration-200 ${twoColumns ? 'md:columns-2 md:gap-12 md:[column-rule:1px_solid_#e5e7eb] dark:md:[column-rule:1px_solid_#374151]' : ''}`} style={{ fontSize: `${fontSize}px` }}>
           {renderLyrics()}
         </div>
       </div>

@@ -7,9 +7,10 @@ interface PlannerViewProps {
   onBack: () => void;
   onRemove: (id: number) => void;
   onPresent: () => void;
+  onOpenSong: (id: number) => void;
 }
 
-export default function PlannerView({ songs, onBack, onRemove, onPresent }: PlannerViewProps) {
+export default function PlannerView({ songs, onBack, onRemove, onPresent, onOpenSong }: PlannerViewProps) {
   return (
     <main className="view-section active-view overflow-y-auto bg-gray-50 dark:bg-[#0f0f0f] pb-20">
       <div className="max-w-4xl mx-auto px-6 pt-10">
@@ -45,16 +46,20 @@ export default function PlannerView({ songs, onBack, onRemove, onPresent }: Plan
             </div>
           ) : (
             songs.map((song, i) => (
-              <div key={song.id} className="flex items-center justify-between bg-white dark:bg-[#191919] p-4 rounded-xl border border-gray-200 dark:border-[#333] shadow-sm">
+              <div 
+                key={song.id} 
+                className="flex items-center justify-between bg-white dark:bg-[#191919] p-4 rounded-xl border border-gray-200 dark:border-[#333] shadow-sm hover:border-blue-500 cursor-pointer group"
+                onClick={() => onOpenSong(song.id)}
+              >
                 <div className="flex items-center gap-4">
                   <span className="text-gray-400 font-bold w-6 text-center">{i + 1}</span>
                   <div>
-                    <h3 className="font-bold text-black dark:text-white">{song.title}</h3>
+                    <h3 className="font-bold text-black dark:text-white group-hover:text-blue-500">{song.title}</h3>
                     <p className="text-xs text-gray-500">{song.category}</p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => onRemove(song.id)}
+                  onClick={(e) => { e.stopPropagation(); onRemove(song.id); }}
                   className="svc-btn p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
                 >
                   <Trash weight="bold" />

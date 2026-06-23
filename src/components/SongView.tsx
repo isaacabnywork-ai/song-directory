@@ -16,9 +16,11 @@ interface SongViewProps {
   onPrev?: () => void;
   hasNext?: boolean;
   hasPrev?: boolean;
+  isSunday?: boolean;
+  onPresentSetlist?: () => void;
 }
 
-export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDelete, onNext, onPrev, hasNext, hasPrev }: SongViewProps) {
+export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDelete, onNext, onPrev, hasNext, hasPrev, isSunday, onPresentSetlist }: SongViewProps) {
   const [transpose, setTranspose] = useState(0);
   const [fontSize, setFontSize] = useState(18);
   const [showChords, setShowChords] = useState(true);
@@ -35,6 +37,13 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   const [scrollSpeed, setScrollSpeed] = useState(3);
   const requestRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLElement>(null);
+
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const scrollLoop = React.useCallback(() => {
     if (isAutoPlaying) {
@@ -111,19 +120,28 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
 
   const handleMarkAsSung = async () => {
     try {
-      const newCount = song.sungCount + 1;
-      const res = await fetch(`/api/songs/${song.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({ sungCount: newCount }),
+      const res = await fetch(`/api/history`, {
+        method: 'POST',
+        body: JSON.stringify({ songId: song.id }),
         headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
         const updated = await res.json();
         onUpdate(updated);
+        showToast('Song marked as sung!', 'success');
       }
     } catch (e) {
       console.error(e);
-      alert('Failed to mark as sung');
+      showToast('Failed to mark as sung', 'error');
+    }
+  };
+
+  const handleAddToSunday = async () => {
+    try {
+      await onAddToSunday();
+      showToast('Added to Sunday Setlist', 'success');
+    } catch (e) {
+      showToast('Failed to add to setlist', 'error');
     }
   };
 
@@ -201,6 +219,30 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
     window.print();
   };
 
+  const handleCopySong = () => {
+    let cleanText = "";
+    if (song.lyrics) {
+      cleanText = showChords ? song.lyrics.replace(/\[/g, '(').replace(/\]/g, ') ') : song.lyrics.replace(/\[[^\]]+\]/g, '');
+    }
+    navigator.clipboard.writeText(`${song.title}\n${song.artist}\n\n${cleanText}`);
+    alert('Copied to clipboard');
+  };
+
+  const handleDownloadWord = () => {
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML To Doc</title></head><body>";
+    const footer = "</body></html>";
+    const content = document.getElementById("lyrics-content")?.innerHTML || "";
+    const sourceHTML = header + `<h1>${song.title}</h1><h3>${song.artist}</h3>` + content + footer;
+    
+    const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+    const fileDownload = document.createElement("a");
+    document.body.appendChild(fileDownload);
+    fileDownload.href = source;
+    fileDownload.download = `${song.title}.doc`;
+    fileDownload.click();
+    document.body.removeChild(fileDownload);
+  };
+
   const renderLyrics = () => {
     const text = song.lyrics || "Lyrics haven't been added yet.\nClick 'Edit' to add them using [C]ChordPro format.";
     const lines = text.split('\n');
@@ -211,14 +253,13 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
       }
 
       const parts = line.split(/(\[[^\]]+\])/);
-      let ch = '';
       
       return (
-        <div key={lineIdx} className="flex flex-wrap items-end mb-1 md:mb-2 break-inside-avoid">
+        <div key={lineIdx} className="mb-1 md:mb-2 break-inside-avoid leading-relaxed">
           {parts.map((part, partIdx) => {
             if (part.startsWith('[')) {
               const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-              ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
+              let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
                 let b = m;
                 if (b === 'Bb') b = 'A#';
                 if (b === 'Eb') b = 'D#';
@@ -229,17 +270,14 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 if (i === -1) return m;
                 return notes[(i + transpose + 12) % 12];
               });
-              return null;
-            } else if (part.length > 0 || ch) {
-              const currentCh = ch;
-              ch = '';
               return (
-                <div key={partIdx} className="inline-flex flex-col">
-                  <span className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.8em] font-sans h-[1.3em] leading-none select-none ${showChords ? '' : 'hidden'}`}>
-                    {currentCh}
-                  </span>
-                  <span className="leading-normal whitespace-pre-wrap break-words">{part || ''}</span>
-                </div>
+                <span key={partIdx} className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.9em] mx-1 select-none ${showChords ? '' : 'hidden'}`}>
+                  ({ch})
+                </span>
+              );
+            } else if (part.length > 0) {
+              return (
+                <span key={partIdx} className="whitespace-pre-wrap break-words">{part}</span>
               );
             }
             return null;
@@ -250,7 +288,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   };
 
   return (
-    <main ref={containerRef} className="view-section active-view overflow-y-auto bg-white dark:bg-[#191919] pb-20 print:pb-0 print:bg-white print:text-black">
+    <main className="view-section active-view overflow-y-auto bg-white dark:bg-[#191919] pb-20 print:pb-0 print:bg-white print:text-black">
       <div className="max-w-5xl mx-auto px-6 pt-10 print:pt-0 print:px-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 print:hidden">
           <div className="flex items-center gap-4">
@@ -278,6 +316,17 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 <CaretRight weight="bold" className="text-lg" />
               </button>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-2 print:hidden">
+            {isSunday && onPresentSetlist && (
+              <button 
+                onClick={onPresentSetlist}
+                className="svc-btn px-4 py-1.5 bg-blue-500 text-white font-bold rounded shadow-sm hover:bg-blue-600 flex items-center justify-center gap-2 border-none"
+              >
+                <Play weight="fill" className="text-sm" /> <span>Present</span>
+              </button>
+            )}
           </div>
 
           {!isEditing && (
@@ -371,10 +420,10 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
 
             <div className="flex flex-col gap-2 shrink-0 print:hidden">
               <button 
-                onClick={onAddToSunday}
+                onClick={handleAddToSunday}
                 className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-medium rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1.5 text-sm border-none w-full"
               >
-                <CalendarPlus weight="bold" className="text-base text-[#2684FF] dark:text-[#5e9eff]" /> <span>Add to Sunday</span>
+                <CalendarPlus weight="bold" className="text-base text-[#2684FF] dark:text-[#5e9eff]" /> <span>{isSunday ? 'Added to Sunday' : 'Add to Sunday'}</span>
               </button>
               <button 
                 onClick={handleMarkAsSung}
@@ -382,6 +431,15 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
               >
                 <CheckCircle weight="bold" className="text-base" /> <span>Mark as Sung</span>
               </button>
+              
+              {song.history && song.history.length > 0 && (
+                <div className="mt-2 text-xs text-gray-500 bg-gray-50 dark:bg-[#1f1f1f] p-2 rounded max-h-32 overflow-y-auto">
+                  <div className="font-semibold mb-1">Sung History:</div>
+                  {song.history.map(h => (
+                    <div key={h.id}>{new Date(h.sungAt).toLocaleDateString()}</div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -419,14 +477,28 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           )}
         </div>
 
-        <div className="flex justify-between items-center mb-4 print:hidden">
+        <div className="flex flex-wrap justify-between items-center mb-4 gap-2 print:hidden">
           <h2 className="text-lg font-bold text-[#37352f] dark:text-white">Lyrics</h2>
-          <button 
-            onClick={handlePrintLyrics}
-            className="svc-btn text-xs px-2 py-1 bg-transparent text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1 border border-gray-200 dark:border-[#373737] rounded"
-          >
-            <Printer weight="bold" /> Print Song
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleCopySong}
+              className="svc-btn text-xs px-2 py-1 bg-transparent text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1 border border-gray-200 dark:border-[#373737] rounded"
+            >
+              Copy
+            </button>
+            <button 
+              onClick={handleDownloadWord}
+              className="svc-btn text-xs px-2 py-1 bg-transparent text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1 border border-gray-200 dark:border-[#373737] rounded"
+            >
+              Word
+            </button>
+            <button 
+              onClick={handlePrintLyrics}
+              className="svc-btn text-xs px-2 py-1 bg-transparent text-gray-500 hover:text-black dark:hover:text-white flex items-center gap-1 border border-gray-200 dark:border-[#373737] rounded"
+            >
+              <Printer weight="bold" /> PDF
+            </button>
+          </div>
         </div>
 
         {isEditing ? (
@@ -438,7 +510,9 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           />
         ) : (
           <div 
-            className={`text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans print:text-black print:dark:text-black cursor-pointer ${twoColumns ? 'md:columns-2 md:gap-12 md:[column-rule:1px_solid_#e5e7eb] dark:md:[column-rule:1px_solid_#374151]' : ''}`} 
+            id="lyrics-content"
+            ref={containerRef}
+            className={`text-[#37352f] dark:text-[rgba(255,255,255,0.9)] font-sans print:text-black print:dark:text-black cursor-pointer ${twoColumns ? 'md:columns-2 md:gap-12 md:[column-rule:1px_solid_#e5e7eb] dark:md:[column-rule:1px_solid_#374151]' : ''} ${isFullscreen ? 'bg-white dark:bg-[#191919] p-8 md:p-16 h-screen overflow-y-auto' : ''}`} 
             style={{ fontSize: `${fontSize}px` }}
             onClick={() => setIsAutoPlaying(prev => !prev)}
             title="Click to toggle autoplay"
@@ -447,6 +521,13 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           </div>
         )}
       </div>
+
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 text-sm font-medium transition-all duration-300 ${toast.type === 'success' ? 'bg-[#22c55e] text-white' : 'bg-red-500 text-white'}`}>
+          {toast.type === 'success' ? <CheckCircle weight="fill" className="text-lg" /> : <div className="font-bold">!</div>}
+          {toast.message}
+        </div>
+      )}
     </main>
   );
 }

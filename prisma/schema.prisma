@@ -8,12 +8,28 @@ datasource db {
 }
 
 model Song {
-  id       Int     @id @default(autoincrement())
-  title    String
-  artist   String
-  year     Int
-  category String
-  lyrics   String?
-  sungCount Int     @default(0)
-  audioUrl  String?
+  id            Int             @id @default(autoincrement())
+  title         String
+  artist        String
+  year          Int
+  category      String
+  lyrics        String?
+  sungCount     Int             @default(0)
+  audioUrl      String?
+  history       SongHistory[]
+  sundaySetlist SundaySetlist?
+}
+
+model SongHistory {
+  id     Int      @id @default(autoincrement())
+  songId Int
+  sungAt DateTime @default(now())
+  song   Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+}
+
+model SundaySetlist {
+  id     Int  @id @default(autoincrement())
+  songId Int  @unique
+  order  Int  @default(0)
+  song   Song @relation(fields: [songId], references: [id], onDelete: Cascade)
 }

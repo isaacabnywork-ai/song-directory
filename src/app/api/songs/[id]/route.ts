@@ -25,7 +25,8 @@ export async function PUT(
         ...(lyrics !== undefined && { lyrics }),
         ...(sungCount !== undefined && { sungCount: parseInt(sungCount, 10) }),
         ...(audioUrl !== undefined && { audioUrl }),
-      }
+      },
+      include: { history: { orderBy: { sungAt: 'desc' } } }
     })
 
     return NextResponse.json(updatedSong)

@@ -29,21 +29,15 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   // Sunday planner state
   const [sundaySongs, setSundaySongs] = useState<Song[]>([]);
   
-  // Load sunday songs from local storage on mount
+  // Load sunday songs from DB on mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('svc_setlist');
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved) setSundaySongs(JSON.parse(saved));
-    } catch {
-      // ignore
-    }
+    fetch('/api/setlist')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSundaySongs(data);
+      })
+      .catch(console.error);
   }, []);
-
-  // Save sunday songs to local storage when changed
-  useEffect(() => {
-    localStorage.setItem('svc_setlist', JSON.stringify(sundaySongs));
-  }, [sundaySongs]);
 
   useEffect(() => {
     if (darkMode) {
@@ -102,6 +96,9 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
             setCurrentPlaylist([song]);
             setActiveView('song');
           }}
+          onUpdateSong={(updatedSong) => {
+            setSongs(songs.map(s => s.id === updatedSong.id ? updatedSong : s));
+          }}
         />
       )}
 
@@ -109,9 +106,17 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
         <SongView 
           song={currentSong}
           onBack={() => setActiveView('directory')}
-          onAddToSunday={() => {
+          onAddToSunday={async () => {
             if (!sundaySongs.find(s => s.id === currentSong.id)) {
-              setSundaySongs([...sundaySongs, currentSong]);
+              const res = await fetch('/api/setlist', {
+                method: 'POST',
+                body: JSON.stringify({ songId: currentSong.id }),
+                headers: { 'Content-Type': 'application/json' }
+              });
+              if (res.ok) {
+                const updatedList = await res.json();
+                setSundaySongs(updatedList);
+              }
             }
           }}
           onUpdate={(updatedSong) => {
@@ -122,6 +127,8 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
             setSundaySongs(sundaySongs.filter(s => s.id !== id));
             setActiveView('directory');
           }}
+          isSunday={!!sundaySongs.find(s => s.id === currentSong?.id)}
+          onPresentSetlist={() => setActiveView('slides')}
           onNext={
             currentPlaylist.length > 1 ? () => {
               const idx = currentPlaylist.findIndex(s => s.id === currentSong.id);
@@ -143,10 +150,21 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
         <PlannerView 
           songs={sundaySongs}
           onBack={() => setActiveView('menu')}
-          onRemove={(id) => {
-            setSundaySongs(sundaySongs.filter(s => s.id !== id));
+          onRemove={async (id) => {
+            const res = await fetch(`/api/setlist?songId=${id}`, { method: 'DELETE' });
+            if (res.ok) {
+              const updatedList = await res.json();
+              setSundaySongs(updatedList);
+            } else {
+              setSundaySongs(sundaySongs.filter(s => s.id !== id));
+            }
           }}
           onPresent={() => setActiveView('slides')}
+          onOpenSong={(id) => {
+            setCurrentSongId(id);
+            setCurrentPlaylist(sundaySongs);
+            setActiveView('song');
+          }}
         />
       )}
 
