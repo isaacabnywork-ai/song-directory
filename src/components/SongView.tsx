@@ -36,7 +36,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(3);
   const requestRef = useRef<number | null>(null);
-  const containerRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 

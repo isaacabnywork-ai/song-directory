@@ -13,7 +13,7 @@ interface DirectoryViewProps {
   onUpdateSong?: (song: Song) => void;
 }
 
-export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded }: DirectoryViewProps) {
+export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded, onUpdateSong }: DirectoryViewProps) {
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<'title' | 'artist' | 'year' | 'frequency'>('title');
   const [localCategory, setLocalCategory] = useState<string>(category);
@@ -41,8 +41,8 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
         const freqB = b.history?.length || b.sungCount || 0;
         return freqB - freqA;
       }
-      let v1 = a[sort as keyof Song];
-      let v2 = b[sort as keyof Song];
+      let v1: any = a[sort as keyof Song] ?? '';
+      let v2: any = b[sort as keyof Song] ?? '';
       if (typeof v1 === 'string') v1 = v1.toLowerCase();
       if (typeof v2 === 'string') v2 = v2.toLowerCase();
       if (v1 < v2) return -1;
