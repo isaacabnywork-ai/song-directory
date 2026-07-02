@@ -13,6 +13,26 @@ interface DirectoryViewProps {
   onUpdateSong?: (song: Song) => void;
 }
 
+// Helper to extract the starting letter of a song title (handling Roman transliteration)
+const getSongLetter = (title: string): string => {
+  const bracketMatch = title.match(/[\[\(]([^\]\)]+)/);
+  let textToParse = "";
+  if (bracketMatch && bracketMatch[1]) {
+    textToParse = bracketMatch[1].trim();
+  } else {
+    textToParse = title.trim();
+  }
+
+  // Strip leading exclamations like "Oh", "Oho", "O" (case-insensitive) if followed by space
+  const cleanText = textToParse.replace(/^(o|oh|oho)\s+/i, '');
+
+  const englishMatch = cleanText.match(/[A-Za-z]/);
+  if (englishMatch) {
+    return englishMatch[0].toUpperCase();
+  }
+  return cleanText.charAt(0).toUpperCase() || '?';
+};
+
 export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded, onUpdateSong }: DirectoryViewProps) {
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<'title' | 'artist' | 'year' | 'frequency'>('title');
@@ -50,6 +70,31 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
       return 0;
     });
   }, [songs, localCategory, search, sort]);
+
+  const isAlphaCategory = useMemo(() => {
+    return ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'].includes(localCategory);
+  }, [localCategory]);
+
+  const groupedSongs = useMemo(() => {
+    if (!isAlphaCategory || sort !== 'title') return null;
+    
+    const groups: { [key: string]: Song[] } = {};
+    filteredSongs.forEach(song => {
+      const letter = getSongLetter(song.title);
+      if (!groups[letter]) {
+        groups[letter] = [];
+      }
+      groups[letter].push(song);
+    });
+    
+    return Object.keys(groups)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = groups[key];
+        return acc;
+      }, {} as { [key: string]: Song[] });
+  }, [filteredSongs, isAlphaCategory, sort]);
+
 
   return (
     <main className="view-section active-view overflow-y-auto bg-gray-50 dark:bg-[#0f0f0f] pb-20">
@@ -153,23 +198,63 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
         </div>
 
         {filteredSongs.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredSongs.map(song => (
-              <div 
-                key={song.id}
-                onClick={() => onSelectSong(song.id, filteredSongs)}
-                className="svc-btn song-card bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#333] rounded-lg p-4 hover:shadow-md group cursor-pointer"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500">{song.title}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{song.artist}</p>
+          isAlphaCategory && sort === 'title' && groupedSongs ? (
+            <div className="space-y-8">
+              {Object.entries(groupedSongs).map(([letter, songsInGroup]) => (
+                <div key={letter} className="space-y-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-3 py-1 rounded-md border border-blue-100 dark:border-blue-900/40 shadow-sm">
+                      Category {letter}
+                    </span>
+                    <div className="h-[1px] flex-1 bg-gray-200 dark:bg-[#333]" />
                   </div>
-                  <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] text-gray-600 dark:text-gray-300 rounded">{song.year}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {songsInGroup.map(song => (
+                      <div 
+                        key={song.id}
+                        onClick={() => onSelectSong(song.id, filteredSongs)}
+                        className="svc-btn song-card bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#333] rounded-lg p-4 hover:shadow-md group cursor-pointer"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm">
+                            {letter}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500">{song.title}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{song.artist}</p>
+                          </div>
+                          <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] text-gray-600 dark:text-gray-300 rounded flex-shrink-0">{song.year}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredSongs.map(song => (
+                <div 
+                  key={song.id}
+                  onClick={() => onSelectSong(song.id, filteredSongs)}
+                  className="svc-btn song-card bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#333] rounded-lg p-4 hover:shadow-md group cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    {isAlphaCategory && (
+                      <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm">
+                        {getSongLetter(song.title)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500">{song.title}</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{song.artist}</p>
+                    </div>
+                    <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] text-gray-600 dark:text-gray-300 rounded flex-shrink-0">{song.year}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <MagnifyingGlassMinus className="text-6xl text-gray-300 dark:text-[#333] mb-4" />

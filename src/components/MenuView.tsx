@@ -4,7 +4,7 @@ import { MagnifyingGlass, Folder, CalendarStar, FileDoc, ChartBar, ChartPieSlice
 import { Song } from '@/types';
 
 interface MenuViewProps {
-  onNavigate: (view: 'directory' | 'planner', category?: string) => void;
+  onNavigate: (view: 'directory' | 'planner' | 'history', category?: string) => void;
   onSearch: (query: string) => void;
   sundayCount: number;
   songs: Song[];
@@ -163,142 +163,15 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
               </span>
             )}
           </button>
-        </div>
 
-        {/* Statistics Section */}
-        <h2 className="text-xs font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase mb-3 px-2 border-none flex items-center gap-1.5">
-          <ChartBar weight="bold" /> Statistics & Tracking
-        </h2>
-        
-        <div className="bg-gray-50 dark:bg-[#202020] rounded-xl border border-gray-100 dark:border-[#2b2b2b] p-4 mb-12">
-          
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <div className="p-4 bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:border-[#373737]">
-              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 mb-1 font-medium tracking-wide uppercase">Total Songs</p>
-              <p className="text-3xl font-bold text-[#37352f] dark:text-white m-0">{stats.totalSongs}</p>
+          <button 
+            onClick={() => onNavigate('history')}
+            className="svc-btn w-full flex items-center justify-between px-3 py-2 rounded text-[15px] text-[#37352f] dark:text-[rgba(255,255,255,0.8)] hover:bg-gray-100 dark:hover:bg-[#2c2c2c] transition-colors border-none bg-transparent"
+          >
+            <div className="flex items-center gap-2.5">
+              <ChartBar weight="fill" className="text-[18px] text-emerald-500" /> Frequency of the Songs
             </div>
-            <div className="p-4 bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:border-[#373737]">
-              <p className="text-xs text-gray-500 dark:text-gray-400 m-0 mb-1 font-medium tracking-wide uppercase">Never Sung</p>
-              <p className="text-3xl font-bold text-[#ef4444] m-0">{stats.neverSungCount}</p>
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-sm font-bold text-[#37352f] dark:text-white mb-4 m-0 flex items-center gap-2">
-              <ChartBar /> Most Sung Songs
-            </h3>
-            {stats.topSung.length > 0 ? (
-              <div className="space-y-3">
-                {stats.topSung.map(song => (
-                  <div key={song.id}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-[#37352f] dark:text-gray-200 truncate pr-4 font-medium">{song.title}</span>
-                      <span className="text-gray-500 shrink-0 font-bold">{stats.getCount(song)} times</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-[#373737] rounded-full h-2">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full" 
-                        style={{ width: `${Math.max(5, (stats.getCount(song) / stats.maxSungCount) * 100)}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 m-0 italic">No songs have been tracked yet.</p>
-            )}
-          </div>
-
-          <div className="mb-8 pt-6 border-t border-gray-200 dark:border-[#373737]">
-            <h3 className="text-sm font-bold text-[#37352f] dark:text-white mb-4 m-0 flex items-center gap-2">
-              <CalendarStar /> Song History
-            </h3>
-            {stats.sungSongs.length > 0 ? (
-              <div className="space-y-2">
-                {stats.sungSongs.map(song => (
-                  <details key={song.id} className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#373737] rounded-lg group">
-                    <summary className="flex justify-between items-center p-4 cursor-pointer list-none outline-none">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-[15px] text-[#37352f] dark:text-gray-200 group-hover:text-blue-500 transition-colors">{song.title}</span>
-                        {song.history && song.history.length > 0 && (
-                          <span className="text-xs text-gray-500 mt-1 font-medium">
-                            Last sung: {new Date(song.history[0].sungAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-[#2b2b2b] px-2.5 py-1 rounded">
-                        {stats.getCount(song)} times
-                      </span>
-                    </summary>
-                    <div className="p-4 pt-0 text-sm text-gray-600 dark:text-gray-400 border-t border-gray-100 dark:border-[#2b2b2b] mt-2">
-                      {song.history && song.history.length > 0 ? (
-                        <div className="space-y-1 mt-2">
-                          {song.history.map((h, i) => (
-                            <div key={h.id} className="flex gap-3 items-center py-1">
-                              <span className="w-4 text-gray-400 text-xs font-bold">{song.history!.length - i}.</span>
-                              <span>{new Date(h.sungAt).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="m-0 italic mt-2">Dates not recorded (legacy count).</p>
-                      )}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            ) : (
-               <p className="text-sm text-gray-500 dark:text-gray-400 m-0 italic">No song history available.</p>
-            )}
-          </div>
-
-          {stats.neverSungCount > 0 && (
-            <div className="pt-6 border-t border-gray-200 dark:border-[#373737]">
-              <h3 className="text-sm font-bold text-[#37352f] dark:text-white mb-4 m-0 flex items-center gap-2">
-                <ChartPieSlice /> Never Sung Categories
-              </h3>
-              
-              <div className="flex flex-col md:flex-row items-center gap-8 mb-8 bg-white dark:bg-[#191919] p-6 rounded-lg border border-gray-200 dark:border-[#373737]">
-                <div 
-                  className="w-40 h-40 rounded-full shrink-0 shadow-inner"
-                  style={{ background: stats.pieGradient }}
-                ></div>
-                <div className="flex-1 w-full space-y-2">
-                  {stats.neverSungByCategory.map(cat => (
-                    <div key={cat.name} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }}></div>
-                        <span className="text-[#37352f] dark:text-gray-300 font-medium">{cat.name}</span>
-                      </div>
-                      <span className="text-gray-500 font-medium">
-                        {cat.count} {cat.count === 1 ? 'song' : 'songs'} ({Math.round((cat.count / stats.neverSungCount) * 100)}%)
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <h3 className="text-sm font-bold text-[#37352f] dark:text-white mb-4 m-0 flex items-center gap-2">
-                <ListDashes /> List of Unsung Songs
-              </h3>
-              <div className="bg-white dark:bg-[#191919] rounded-lg border border-gray-200 dark:border-[#373737] overflow-hidden">
-                <div className="max-h-60 overflow-y-auto p-2">
-                  {stats.neverSungSongs.map(song => (
-                    <button
-                      key={song.id}
-                      onClick={() => onNavigate('directory', 'Search Results')} // Could navigate directly to song if we passed a select method, but this is fine for now, or just display
-                      className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-[#2b2b2b] rounded flex justify-between items-center text-sm border-none bg-transparent transition-colors"
-                    >
-                      <span className="text-[#37352f] dark:text-gray-200 truncate pr-4">{song.title}</span>
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded" style={{ backgroundColor: `${catColors[song.category]}20`, color: catColors[song.category] }}>
-                        {song.category}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          </button>
         </div>
 
         <div className="pt-6 pb-12 border-t border-gray-200 dark:border-[#373737]">

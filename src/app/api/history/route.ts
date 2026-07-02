@@ -34,3 +34,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    // 1. Delete all song history entries
+    await prisma.songHistory.deleteMany({});
+    
+    // 2. Reset sungCount of all songs to 0
+    await prisma.song.updateMany({
+      data: {
+        sungCount: 0
+      }
+    });
+
+    return NextResponse.json({ success: true, message: "All song history and sung counts have been reset." });
+  } catch (error) {
+    console.error("Failed to reset history", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+

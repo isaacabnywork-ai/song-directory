@@ -8,9 +8,10 @@ import DirectoryView from './DirectoryView';
 import SongView from './SongView';
 import PlannerView from './PlannerView';
 import SlidesView from './SlidesView';
+import HistoryView from './HistoryView';
 import { Moon, Sun } from '@phosphor-icons/react';
 
-type ViewState = 'landing' | 'menu' | 'directory' | 'song' | 'planner' | 'slides';
+type ViewState = 'landing' | 'menu' | 'directory' | 'song' | 'planner' | 'slides' | 'history';
 
 export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   const [songs, setSongs] = useState<Song[]>(initialSongs);
@@ -46,6 +47,36 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  const handleResetHistory = async () => {
+    if (!confirm("Are you sure you want to reset all song history and counts? This will permanently clear all dates and counts.")) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/history', { method: 'DELETE' });
+      if (res.ok) {
+        // Clear history and counts locally in songs and sundaySongs state
+        const resetSongs = songs.map(s => ({
+          ...s,
+          sungCount: 0,
+          history: []
+        }));
+        const resetSundaySongs = sundaySongs.map(s => ({
+          ...s,
+          sungCount: 0,
+          history: []
+        }));
+        setSongs(resetSongs);
+        setSundaySongs(resetSundaySongs);
+        alert("All song history and counts have been reset.");
+      } else {
+        alert("Failed to reset history. Please try again.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to reset history.");
+    }
+  };
 
   return (
     <div className={`min-h-screen bg-transparent transition-colors duration-300 w-full`}>
@@ -172,6 +203,14 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
         <SlidesView 
           songs={sundaySongs}
           onClose={() => setActiveView('planner')}
+        />
+      )}
+
+      {activeView === 'history' && (
+        <HistoryView 
+          songs={songs}
+          onBack={() => setActiveView('menu')}
+          onResetHistory={handleResetHistory}
         />
       )}
     </div>
