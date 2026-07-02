@@ -19,14 +19,14 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { title, artist, year, category, lyrics } = body
     
-    if (!title || !artist || !category) {
+    if (!title || !category) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
     const newSong = await prisma.song.create({
       data: {
         title,
-        artist,
+        artist: artist || "",
         year: year ? parseInt(year, 10) : new Date().getFullYear(),
         category,
         lyrics: lyrics || null,

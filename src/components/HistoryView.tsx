@@ -61,7 +61,7 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
     // 1. Search filter
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(s => `${s.title} ${s.artist}`.toLowerCase().includes(q));
+      list = list.filter(s => s.title.toLowerCase().includes(q));
     }
 
     // 2. Category filter
@@ -490,9 +490,6 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
                       <h3 className={`text-[15px] text-black dark:text-white m-0 leading-tight ${isBold ? 'font-black' : 'font-normal'}`}>
                         {song.title}
                       </h3>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-0 font-medium">
-                        {song.artist}
-                      </p>
                     </div>
                   </div>
 

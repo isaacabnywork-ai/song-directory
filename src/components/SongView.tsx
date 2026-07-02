@@ -411,8 +411,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 </button>
               </h1>
               <p className="text-base text-gray-500 font-medium flex items-center gap-2 m-0 mt-2 print:text-gray-700">
-                <User weight="fill" /> {song.artist}
-                <span className="ml-4 flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] rounded text-gray-600 dark:text-gray-300 print:hidden">
+                <span className="flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] rounded text-gray-600 dark:text-gray-300 print:hidden">
                   Sung: {song.sungCount} times
                 </span>
               </p>

@@ -33,6 +33,16 @@ const getSongLetter = (title: string): string => {
   return cleanText.charAt(0).toUpperCase() || '?';
 };
 
+const getCategoryFromTitle = (title: string): string => {
+  const letter = getSongLetter(title);
+  if (['A', 'B', 'C'].includes(letter)) return 'A-C';
+  if (['D', 'E', 'F', 'G', 'H'].includes(letter)) return 'D-H';
+  if (['I', 'J', 'K', 'L', 'M'].includes(letter)) return 'I-M';
+  if (['N', 'O', 'P', 'Q', 'R'].includes(letter)) return 'N-R';
+  if (['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'].includes(letter)) return 'S-Z';
+  return 'A-C';
+};
+
 export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded, onUpdateSong }: DirectoryViewProps) {
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<'title' | 'artist' | 'year' | 'frequency'>('title');
@@ -52,7 +62,7 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
     
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter(s => `${s.title} ${s.artist}`.toLowerCase().includes(q));
+      list = list.filter(s => s.title.toLowerCase().includes(q));
     }
     
     return list.sort((a, b) => {
@@ -71,8 +81,81 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
     });
   }, [songs, localCategory, search, sort]);
 
+  const duplicateTitles = useMemo(() => {
+    const counts: Record<string, number> = {};
+    songs.forEach(s => {
+      const normalized = s.title.toLowerCase().trim();
+      counts[normalized] = (counts[normalized] || 0) + 1;
+    });
+    
+    const duplicates = new Set<string>();
+    Object.entries(counts).forEach(([title, count]) => {
+      if (count > 1) {
+        duplicates.add(title);
+      }
+    });
+    return duplicates;
+  }, [songs]);
+
+  const catColors: Record<string, string> = {
+    'A-C': '#ef4444',
+    'D-H': '#f97316',
+    'I-M': '#eab308',
+    'N-R': '#22c55e',
+    'S-Z': '#3b82f6',
+    'Bhajan': '#ec4899',
+    'Praise-Adoration': '#8b5cf6',
+    'Chorus': '#a855f7',
+    'Gospel': '#14b8a6',
+    'Testimony': '#06b6d4',
+    'Commitment & Calling': '#6366f1',
+    'Prayer': '#84cc16',
+    'Christian Faith & Hope': '#10b981',
+    'Good Friday': '#64748b',
+    'Easter': '#f43f5e',
+    'Christmas': '#d946ef',
+    'Preaching': '#475569',
+  };
+
+  const categoryStats = useMemo(() => {
+    if (localCategory !== 'All') return [];
+    const counts: Record<string, number> = {};
+    songs.forEach(s => {
+      counts[s.category] = (counts[s.category] || 0) + 1;
+    });
+    
+    const order = ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z', 'Bhajan', 'Praise-Adoration', 'Chorus', 'Gospel', 'Testimony', 'Commitment & Calling', 'Prayer', 'Christian Faith & Hope', 'Good Friday', 'Easter', 'Christmas', 'Preaching'];
+    const presentCategories = Array.from(new Set(songs.map(s => s.category)));
+    const sortedCategories = order.filter(c => presentCategories.includes(c))
+      .concat(presentCategories.filter(c => !order.includes(c)).sort());
+    
+    const total = songs.length;
+    return sortedCategories.map(cat => {
+      const count = counts[cat] || 0;
+      const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+      return {
+        name: cat,
+        count,
+        percentage,
+        color: catColors[cat] || '#888888',
+      };
+    }).filter(c => c.count > 0);
+  }, [songs, localCategory]);
+
+  const pieGradient = useMemo(() => {
+    if (categoryStats.length === 0) return '';
+    let currentAngle = 0;
+    const parts = categoryStats.map(stat => {
+      const start = currentAngle;
+      const end = currentAngle + (stat.count / songs.length) * 100;
+      currentAngle = end;
+      return `${stat.color} ${start}% ${end}%`;
+    });
+    return `conic-gradient(${parts.join(', ')})`;
+  }, [categoryStats, songs]);
+
   const isAlphaCategory = useMemo(() => {
-    return ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'].includes(localCategory);
+    return ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z', 'All'].includes(localCategory);
   }, [localCategory]);
 
   const groupedSongs = useMemo(() => {
@@ -126,24 +209,31 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                 onClick={async () => {
                   const title = prompt('Song Title:');
                   if (!title) return;
-                  const artist = prompt('Artist:', 'SVC Worship');
-                  const category = prompt('Category (e.g. Bhajan, Praise-Adoration, Chorus, Gospel, etc):', 'Bhajan');
-                  if (title && artist && category) {
-                    const res = await fetch('/api/songs', {
-                      method: 'POST',
-                      body: JSON.stringify({ title, artist, category, year: new Date().getFullYear() }),
-                      headers: { 'Content-Type': 'application/json' }
-                    });
-                    if (res.ok) {
-                      const newSong = await res.json();
-                      if (onSongAdded) {
-                        onSongAdded(newSong);
-                      } else {
-                        window.location.reload();
-                      }
+                  
+                  let categoryToUse = localCategory;
+                  if (categoryToUse === 'All' || categoryToUse === 'Search Results') {
+                    categoryToUse = getCategoryFromTitle(title);
+                  }
+
+                  const res = await fetch('/api/songs', {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                      title, 
+                      artist: "", 
+                      category: categoryToUse, 
+                      year: new Date().getFullYear() 
+                    }),
+                    headers: { 'Content-Type': 'application/json' }
+                  });
+                  if (res.ok) {
+                    const newSong = await res.json();
+                    if (onSongAdded) {
+                      onSongAdded(newSong);
                     } else {
-                      alert('Failed to add song. Please try again.');
+                      window.location.reload();
                     }
+                  } else {
+                    alert('Failed to add song. Please try again.');
                   }
                 }}
                 className="svc-btn h-10 px-4 flex-shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium border-none flex items-center justify-center gap-2 shadow-sm outline-none"
@@ -184,8 +274,6 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                 className="h-10 px-3 flex-shrink-0 rounded-lg bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#333] focus:outline-none focus:border-blue-500 text-sm text-black dark:text-white cursor-pointer shadow-sm outline-none"
               >
                 <option value="title">Sort by Title</option>
-                <option value="artist">Sort by Artist</option>
-                <option value="year">Sort by Year</option>
                 <option value="frequency">Sort by Frequency</option>
               </select>
             </div>
@@ -197,6 +285,33 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
           <span className="flex items-center gap-1"><Lightning /> Search Directory</span>
         </div>
 
+        {localCategory === 'All' && categoryStats.length > 0 && (
+          <div className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#333] rounded-xl p-6 mb-8 flex flex-col md:flex-row items-center gap-8 shadow-sm">
+            <div className="flex-shrink-0">
+              <div 
+                className="w-32 h-32 rounded-full border border-gray-100 dark:border-[#2b2b2b] shadow-inner"
+                style={{ background: pieGradient }}
+              />
+            </div>
+            <div className="flex-1 w-full">
+              <div className="text-xl font-bold text-black dark:text-white mb-4">
+                Total Songs in Library: <span className="text-blue-500">{songs.length}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {categoryStats.map(stat => (
+                  <div key={stat.name} className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: stat.color }} />
+                    <div className="min-w-0">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium truncate">{stat.name}</div>
+                      <div className="text-sm font-bold text-black dark:text-white">{stat.count} <span className="text-xs text-gray-400 font-normal">({stat.percentage}%)</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {filteredSongs.length > 0 ? (
           isAlphaCategory && sort === 'title' && groupedSongs ? (
             <div className="space-y-8">
@@ -204,7 +319,7 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                 <div key={letter} className="space-y-4">
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-3 py-1 rounded-md border border-blue-100 dark:border-blue-900/40 shadow-sm">
-                      Category {letter}
+                      {letter}
                     </span>
                     <div className="h-[1px] flex-1 bg-gray-200 dark:bg-[#333]" />
                   </div>
@@ -220,10 +335,15 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                             {letter}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500">{song.title}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{song.artist}</p>
+                            <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500 flex items-center gap-2 flex-wrap">
+                              <span>{song.title}</span>
+                              {duplicateTitles.has(song.title.toLowerCase().trim()) && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded flex items-center gap-1 shrink-0">
+                                  <span>⚠️</span> Repeating
+                                </span>
+                              )}
+                            </h3>
                           </div>
-                          <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] text-gray-600 dark:text-gray-300 rounded flex-shrink-0">{song.year}</span>
                         </div>
                       </div>
                     ))}
@@ -246,10 +366,15 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500">{song.title}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{song.artist}</p>
+                      <h3 className="font-semibold text-black dark:text-white text-base leading-tight group-hover:text-blue-500 flex items-center gap-2 flex-wrap">
+                        <span>{song.title}</span>
+                        {duplicateTitles.has(song.title.toLowerCase().trim()) && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded flex items-center gap-1 shrink-0">
+                            <span>⚠️</span> Repeating
+                          </span>
+                        )}
+                      </h3>
                     </div>
-                    <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] text-gray-600 dark:text-gray-300 rounded flex-shrink-0">{song.year}</span>
                   </div>
                 </div>
               ))}
@@ -272,7 +397,9 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 print:hidden">
           <div className="bg-white dark:bg-[#191919] rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-gray-200 dark:border-[#333]">
             <div className="p-4 border-b border-gray-200 dark:border-[#333] flex justify-between items-center">
-              <h3 className="text-lg font-bold m-0 text-[#37352f] dark:text-white flex items-center gap-2 border-none pb-0"><Books /> Pick Songs for {localCategory}</h3>
+              <h3 className="text-lg font-bold m-0 text-[#37352f] dark:text-white flex items-center gap-2 border-none pb-0">
+                <Books /> Pick Songs for {localCategory} ({songs.filter(s => s.category !== localCategory).length} available)
+              </h3>
               <button onClick={() => setShowPickModal(false)} className="text-gray-500 hover:text-black dark:hover:text-white text-xl bg-transparent border-none p-0 cursor-pointer">✕</button>
             </div>
             <div className="p-4 border-b border-gray-200 dark:border-[#333]">
@@ -286,15 +413,14 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
             </div>
             <div className="flex-1 overflow-y-auto p-2">
               {songs
-                .filter(s => ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'].includes(s.category))
                 .filter(s => s.category !== localCategory)
-                .filter(s => `${s.title} ${s.artist}`.toLowerCase().includes(pickSearch.toLowerCase()))
-                .slice(0, 50)
+                .filter(s => s.title.toLowerCase().includes(pickSearch.toLowerCase()))
+                .slice(0, 500)
                 .map(song => (
                   <div key={song.id} className="flex justify-between items-center p-3 hover:bg-gray-50 dark:hover:bg-[#2b2b2b] rounded-lg group transition-colors">
                     <div>
                       <div className="font-medium text-[#37352f] dark:text-white">{song.title}</div>
-                      <div className="text-xs text-gray-500 mt-1">{song.artist} • Currently in <span className="font-semibold">{song.category}</span></div>
+                      <div className="text-xs text-gray-500 mt-1">Currently in <span className="font-semibold">{song.category}</span></div>
                     </div>
                     <button 
                       onClick={async () => {
@@ -318,9 +444,9 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
                     </button>
                   </div>
               ))}
-              {songs.filter(s => ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'].includes(s.category) && s.category !== localCategory && `${s.title} ${s.artist}`.toLowerCase().includes(pickSearch.toLowerCase())).length === 0 && (
+              {songs.filter(s => s.category !== localCategory && s.title.toLowerCase().includes(pickSearch.toLowerCase())).length === 0 && (
                 <div className="text-center p-8 text-gray-500 text-sm italic">
-                  No matching songs found in A-Z categories.
+                  No matching songs found in the library.
                 </div>
               )}
             </div>

@@ -116,7 +116,7 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
         <h2 className="text-xs font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase mb-3 px-2 border-none">
           Alphabetical Index
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-8 px-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-3 px-1">
           {alphaCategories.map(cat => (
             <button 
               key={cat}
@@ -127,6 +127,15 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
               <span>{cat}</span>
             </button>
           ))}
+        </div>
+        <div className="mb-8 px-1">
+          <button 
+            onClick={() => onNavigate('directory', 'All')}
+            className="svc-btn w-full flex items-center justify-start gap-2.5 px-3 py-2.5 rounded-lg text-[15px] text-blue-600 dark:text-[#5e9eff] bg-blue-50/50 dark:bg-[rgba(38,132,255,0.08)] hover:bg-blue-50 dark:hover:bg-[rgba(38,132,255,0.15)] font-semibold transition-colors border-none"
+          >
+            <Folder className="text-[18px] text-blue-500" weight="fill" /> 
+            <span>ALL THE SONGS</span>
+          </button>
         </div>
 
         <h2 className="text-xs font-bold tracking-wider text-gray-400 dark:text-gray-500 uppercase mb-3 px-2 border-none">
