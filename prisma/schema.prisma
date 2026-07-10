@@ -44,3 +44,10 @@ model ServiceItem {
   isHeader    Boolean  @default(false)
   order       Int      @default(0)
 }
+
+model ServiceOrderHistory {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique
+  items     Json
+  createdAt DateTime @default(now())
+}
