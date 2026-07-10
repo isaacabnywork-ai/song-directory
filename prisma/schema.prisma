@@ -33,3 +33,14 @@ model SundaySetlist {
   order  Int  @default(0)
   song   Song @relation(fields: [songId], references: [id], onDelete: Cascade)
 }
+
+model ServiceItem {
+  id          Int      @id @default(autoincrement())
+  startTime   String?
+  endTime     String?
+  event       String
+  responsible String?
+  content     String?
+  isHeader    Boolean  @default(false)
+  order       Int      @default(0)
+}

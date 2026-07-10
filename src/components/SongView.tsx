@@ -29,8 +29,45 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   
   // Editing state
   const [isEditing, setIsEditing] = useState(false);
-  const [editLyrics, setEditLyrics] = useState(song.lyrics || '');
+  const [editBlocks, setEditBlocks] = useState<{id: string, type: string, content: string}[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  const parseToBlocks = (text: string) => {
+    const stanzas = text.replace(/\r\n/g, '\n').split(/\n{2,}/);
+    return stanzas.map((stanza) => {
+      if (!stanza.trim()) return null;
+      const lines = stanza.split('\n');
+      let type = 'Verse';
+      let content = stanza;
+      
+      const firstLine = lines[0].trim();
+      if (firstLine.indexOf('[') === -1 && 
+         (firstLine.endsWith(':') || /^(Chorus|Verse|Bridge|Pre-Chorus|Intro|Outro|Tag|Ending|Interlude)/i.test(firstLine))) {
+        
+        const match = firstLine.match(/^(Chorus|Verse|Bridge|Pre-Chorus|Intro|Outro|Tag|Ending|Interlude)/i);
+        if (match) {
+          type = match[0];
+          type = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+        } else {
+          type = firstLine.replace(':', '');
+        }
+        content = lines.slice(1).join('\n');
+      }
+      
+      return { id: Math.random().toString(), type, content };
+    }).filter(Boolean) as {id: string, type: string, content: string}[];
+  };
+
+  const serializeBlocks = (blocks: {id: string, type: string, content: string}[]) => {
+    let verseCount = 1;
+    return blocks.map(b => {
+      let label = b.type;
+      if (b.type === 'Verse') {
+        label = `Verse ${verseCount++}`;
+      }
+      return `${label}:\n${b.content.trim()}`;
+    }).join('\n\n');
+  };
   
   // Autoplay state
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -102,9 +139,10 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
 
   const handleSaveLyrics = async () => {
     try {
+      const newLyrics = serializeBlocks(editBlocks);
       const res = await fetch(`/api/songs/${song.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ lyrics: editLyrics }),
+        body: JSON.stringify({ lyrics: newLyrics }),
         headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
@@ -245,43 +283,57 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
 
   const renderLyrics = () => {
     const text = song.lyrics || "Lyrics haven't been added yet.\nClick 'Edit' to add them using [C]ChordPro format.";
-    const lines = text.split('\n');
+    const stanzas = text.replace(/\r\n/g, '\n').split(/\n{2,}/);
     
-    return lines.map((line, lineIdx) => {
-      if (!line.trim()) {
-        return <div key={lineIdx} className="h-6"></div>;
-      }
+    return stanzas.map((stanza, stanzaIdx) => {
+      if (!stanza.trim()) return null;
 
-      const parts = line.split(/(\[[^\]]+\])/);
-      
+      const lines = stanza.split('\n');
+
       return (
-        <div key={lineIdx} className="mb-1 md:mb-2 break-inside-avoid leading-relaxed">
-          {parts.map((part, partIdx) => {
-            if (part.startsWith('[')) {
-              const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-              let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
-                let b = m;
-                if (b === 'Bb') b = 'A#';
-                if (b === 'Eb') b = 'D#';
-                if (b === 'Ab') b = 'G#';
-                if (b === 'Db') b = 'C#';
-                if (b === 'Gb') b = 'F#';
-                const i = notes.indexOf(b);
-                if (i === -1) return m;
-                return notes[(i + transpose + 12) % 12];
-              });
+        <div key={stanzaIdx} className={`mb-6 flex gap-4 break-inside-avoid`}>
+          <div className="flex-1">
+            {lines.map((line, lineIdx) => {
+              if (!line.trim() && lines.length > 1) return <div key={lineIdx} className="h-4"></div>;
+
+              const isLabelLine = line.indexOf('[') === -1 && 
+                (line.trim().endsWith(':') || 
+                 /^(Chorus|Verse|Bridge|Pre-Chorus|Intro|Outro|Tag|Ending|Interlude)/i.test(line.trim()));
+
+              const parts = line.split(/(\[[^\]]+\])/);
+
               return (
-                <span key={partIdx} className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.9em] mx-1 select-none ${showChords ? '' : 'hidden'}`}>
-                  ({ch})
-                </span>
+                <div key={lineIdx} className={`mb-1 md:mb-2 leading-relaxed ${isLabelLine ? 'font-bold text-[#2684FF] dark:text-[#5e9eff] mt-2 mb-1' : ''}`}>
+                  {parts.map((part, partIdx) => {
+                    if (part.startsWith('[')) {
+                      const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                      let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
+                        let b = m;
+                        if (b === 'Bb') b = 'A#';
+                        if (b === 'Eb') b = 'D#';
+                        if (b === 'Ab') b = 'G#';
+                        if (b === 'Db') b = 'C#';
+                        if (b === 'Gb') b = 'F#';
+                        const i = notes.indexOf(b);
+                        if (i === -1) return m;
+                        return notes[(i + transpose + 12) % 12];
+                      });
+                      return (
+                        <span key={partIdx} className={`chord text-[#2684FF] dark:text-[#5e9eff] font-bold text-[0.9em] mx-1 select-none ${showChords ? '' : 'hidden'}`}>
+                          ({ch})
+                        </span>
+                      );
+                    } else if (part.length > 0) {
+                      return (
+                        <span key={partIdx} className="whitespace-pre-wrap break-words">{part}</span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
               );
-            } else if (part.length > 0) {
-              return (
-                <span key={partIdx} className="whitespace-pre-wrap break-words">{part}</span>
-              );
-            }
-            return null;
-          })}
+            })}
+          </div>
         </div>
       );
     });
@@ -366,7 +418,14 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
               </button>
 
               <button 
-                onClick={() => setIsEditing(true)}
+                onClick={() => {
+                  setIsEditing(true);
+                  const blocks = parseToBlocks(song.lyrics || '');
+                  if (blocks.length === 0) {
+                    blocks.push({ id: Math.random().toString(), type: 'Verse', content: '' });
+                  }
+                  setEditBlocks(blocks);
+                }}
                 className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1 border-none"
               >
                 <PencilSimple weight="fill" /> <span>Edit</span>
@@ -382,7 +441,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           {isEditing && (
             <div className="flex flex-wrap items-center gap-2">
               <button 
-                onClick={() => { setIsEditing(false); setEditLyrics(song.lyrics || ''); }}
+                onClick={() => { setIsEditing(false); setEditBlocks([]); }}
                 className="svc-btn px-3 py-1.5 bg-gray-200 text-black text-xs font-semibold rounded hover:bg-gray-300 border-none"
               >
                 Cancel
@@ -501,12 +560,73 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
         </div>
 
         {isEditing ? (
-          <textarea
-            value={editLyrics}
-            onChange={(e) => setEditLyrics(e.target.value)}
-            className="w-full h-96 p-4 text-base bg-white dark:bg-[#191919] text-[#37352f] dark:text-white font-mono border-2 border-gray-200 dark:border-[#373737] rounded-lg outline-none focus:border-[#2684FF] transition-colors resize-y leading-relaxed print:hidden"
-            placeholder="Type lyrics here. Use [C]Chord format for chords."
-          />
+          <div className="flex flex-col gap-4 print:hidden">
+            {editBlocks.map((block, idx) => (
+              <div key={block.id} className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#373737] rounded-lg p-4 relative focus-within:border-[#2684FF] transition-colors">
+                <div className="flex justify-between items-center mb-3">
+                  <select
+                    value={block.type}
+                    onChange={(e) => {
+                      const newBlocks = [...editBlocks];
+                      newBlocks[idx].type = e.target.value;
+                      setEditBlocks(newBlocks);
+                    }}
+                    className="bg-[#f1f1ef] dark:bg-[#2b2b2b] text-sm font-bold text-gray-700 dark:text-gray-300 rounded px-2 py-1 outline-none border-none cursor-pointer"
+                  >
+                    <option value="Verse">Verse</option>
+                    <option value="Chorus">Chorus</option>
+                    <option value="Bridge">Bridge</option>
+                    <option value="Pre-Chorus">Pre-Chorus</option>
+                    <option value="Intro">Intro</option>
+                    <option value="Outro">Outro</option>
+                    <option value="Tag">Tag</option>
+                    <option value="Ending">Ending</option>
+                  </select>
+                  <button 
+                    onClick={() => {
+                      const newBlocks = [...editBlocks];
+                      newBlocks.splice(idx, 1);
+                      setEditBlocks(newBlocks);
+                    }}
+                    className="text-gray-400 hover:text-red-500 bg-transparent border-none p-1 cursor-pointer"
+                  >
+                    <Trash weight="bold" />
+                  </button>
+                </div>
+                <textarea
+                  value={block.content}
+                  onChange={(e) => {
+                    const newBlocks = [...editBlocks];
+                    newBlocks[idx].content = e.target.value;
+                    setEditBlocks(newBlocks);
+                  }}
+                  className="w-full min-h-[100px] text-base bg-transparent text-[#37352f] dark:text-white font-mono outline-none resize-y leading-relaxed"
+                  placeholder={`Type ${block.type.toLowerCase()} lyrics here. Use [C]Chord format.`}
+                />
+              </div>
+            ))}
+            
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button 
+                onClick={() => setEditBlocks([...editBlocks, { id: Math.random().toString(), type: 'Verse', content: '' }])}
+                className="px-4 py-2 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-2 border-none text-sm cursor-pointer"
+              >
+                <Plus weight="bold" /> Add Verse
+              </button>
+              <button 
+                onClick={() => setEditBlocks([...editBlocks, { id: Math.random().toString(), type: 'Chorus', content: '' }])}
+                className="px-4 py-2 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-2 border-none text-sm cursor-pointer"
+              >
+                <Plus weight="bold" /> Add Chorus
+              </button>
+              <button 
+                onClick={() => setEditBlocks([...editBlocks, { id: Math.random().toString(), type: 'Bridge', content: '' }])}
+                className="px-4 py-2 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-2 border-none text-sm cursor-pointer"
+              >
+                <Plus weight="bold" /> Add Bridge
+              </button>
+            </div>
+          </div>
         ) : (
           <div 
             id="lyrics-content"

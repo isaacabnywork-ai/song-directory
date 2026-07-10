@@ -1,16 +1,17 @@
 'use client';
-import { Song } from '@/types';
+import { Song, ServiceItem } from '@/types';
 import { ArrowLeft, CalendarStar, PresentationChart, ListPlus, Trash } from '@phosphor-icons/react';
 
 interface PlannerViewProps {
   songs: Song[];
+  serviceItems?: ServiceItem[];
   onBack: () => void;
   onRemove: (id: number) => void;
   onPresent: () => void;
   onOpenSong: (id: number) => void;
 }
 
-export default function PlannerView({ songs, onBack, onRemove, onPresent, onOpenSong }: PlannerViewProps) {
+export default function PlannerView({ songs, serviceItems, onBack, onRemove, onPresent, onOpenSong }: PlannerViewProps) {
   return (
     <main className="view-section active-view overflow-y-auto bg-gray-50 dark:bg-[#0f0f0f] pb-20">
       <div className="max-w-4xl mx-auto px-6 pt-10">
@@ -24,7 +25,7 @@ export default function PlannerView({ songs, onBack, onRemove, onPresent, onOpen
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <h2 className="text-3xl font-bold text-black dark:text-white flex items-center gap-3 border-none pb-0 m-0">
-              <CalendarStar weight="fill" className="text-blue-500" /> This Sunday&apos;s Songs
+              <CalendarStar weight="fill" className="text-blue-500" /> Sunday Planner
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 m-0">Your setlist for the upcoming service.</p>
           </div>
@@ -36,6 +37,55 @@ export default function PlannerView({ songs, onBack, onRemove, onPresent, onOpen
               <PresentationChart weight="fill" className="text-xl" /> <span>Present Setlist</span>
             </button>
           )}
+        </div>
+
+        {/* Display Order of Service if it exists */}
+        {serviceItems && serviceItems.length > 0 && (
+          <div className="mb-10">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-bold text-xl text-black dark:text-white flex items-center gap-2">
+                <ListPlus weight="fill" className="text-blue-500" /> Order of Service
+              </h3>
+            </div>
+            <div className="bg-white dark:bg-[#191919] rounded-xl border border-gray-200 dark:border-[#333] shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="bg-gray-50 dark:bg-[#222] text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-[#333]">
+                  <tr>
+                    <th className="px-4 py-3 w-20 border-r border-gray-200 dark:border-[#333]">Time</th>
+                    <th className="px-4 py-3 w-20 border-r border-gray-200 dark:border-[#333]">Time</th>
+                    <th className="px-4 py-3 w-1/4 border-r border-gray-200 dark:border-[#333]">Event</th>
+                    <th className="px-4 py-3 w-1/5 border-r border-gray-200 dark:border-[#333]">Responsible</th>
+                    <th className="px-4 py-3">Content</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {serviceItems.map((item, idx) => (
+                    <tr key={idx} className={`border-b border-gray-100 dark:border-[#2a2a2a] ${item.isHeader ? 'bg-gray-100 dark:bg-[#2a2a2a] font-bold' : ''}`}>
+                      {item.isHeader ? (
+                        <td colSpan={5} className="px-4 py-3 text-center text-black dark:text-white text-base">
+                          {item.event}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 text-black dark:text-white whitespace-nowrap border-r border-gray-200 dark:border-[#333] align-top">{item.startTime}</td>
+                          <td className="px-4 py-3 text-black dark:text-white whitespace-nowrap border-r border-gray-200 dark:border-[#333] align-top">{item.endTime}</td>
+                          <td className="px-4 py-3 font-medium text-black dark:text-white border-r border-gray-200 dark:border-[#333] align-top">{item.event}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 border-r border-gray-200 dark:border-[#333] align-top">{item.responsible}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-pre-wrap align-top">{item.content}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <h3 className="font-bold text-xl text-black dark:text-white flex items-center gap-2">
+            Songs List
+          </h3>
         </div>
 
         <div className="space-y-3">

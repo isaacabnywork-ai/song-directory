@@ -14,3 +14,14 @@ export interface Song {
   audioUrl: string | null;
   history?: SongHistory[];
 }
+
+export interface ServiceItem {
+  id?: number;
+  startTime: string | null;
+  endTime: string | null;
+  event: string;
+  responsible: string | null;
+  content: string | null;
+  isHeader: boolean;
+  order: number;
+}

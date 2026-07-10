@@ -9,9 +9,10 @@ import SongView from './SongView';
 import PlannerView from './PlannerView';
 import SlidesView from './SlidesView';
 import HistoryView from './HistoryView';
+import ServiceOrderView from './ServiceOrderView';
 import { Moon, Sun } from '@phosphor-icons/react';
 
-type ViewState = 'landing' | 'menu' | 'directory' | 'song' | 'planner' | 'slides' | 'history';
+type ViewState = 'landing' | 'menu' | 'directory' | 'song' | 'planner' | 'slides' | 'history' | 'service-order';
 
 export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   const [songs, setSongs] = useState<Song[]>(initialSongs);
@@ -29,13 +30,21 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   
   // Sunday planner state
   const [sundaySongs, setSundaySongs] = useState<Song[]>([]);
+  const [serviceItems, setServiceItems] = useState<any[]>([]);
   
-  // Load sunday songs from DB on mount
+  // Load sunday songs and service items from DB on mount
   useEffect(() => {
     fetch('/api/setlist')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setSundaySongs(data);
+      })
+      .catch(console.error);
+
+    fetch('/api/service-items')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setServiceItems(data);
       })
       .catch(console.error);
   }, []);
@@ -180,6 +189,7 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
       {activeView === 'planner' && (
         <PlannerView 
           songs={sundaySongs}
+          serviceItems={serviceItems}
           onBack={() => setActiveView('menu')}
           onRemove={async (id) => {
             const res = await fetch(`/api/setlist?songId=${id}`, { method: 'DELETE' });
@@ -211,6 +221,36 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
           songs={songs}
           onBack={() => setActiveView('menu')}
           onResetHistory={handleResetHistory}
+        />
+      )}
+      
+      {activeView === 'service-order' && (
+        <ServiceOrderView
+          songs={songs}
+          serviceItems={serviceItems}
+          onServiceItemsChange={async (items) => {
+            setServiceItems(items);
+            await fetch('/api/service-items', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(items)
+            });
+          }}
+          onBack={() => setActiveView('menu')}
+          onNavigateToPlanner={() => setActiveView('planner')}
+          onAddToSetlist={async (songId) => {
+            if (!sundaySongs.find(s => s.id === songId)) {
+              const res = await fetch('/api/setlist', {
+                method: 'POST',
+                body: JSON.stringify({ songId }),
+                headers: { 'Content-Type': 'application/json' }
+              });
+              if (res.ok) {
+                const updatedList = await res.json();
+                setSundaySongs(updatedList);
+              }
+            }
+          }}
         />
       )}
     </div>
