@@ -87,8 +87,13 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
         />
       </div>
 
-      <div className="max-w-[800px] mx-auto px-8 relative -mt-10 md:-mt-12">
-        <div className="text-[72px] md:text-[84px] leading-none mb-4 filter drop-shadow-sm select-none">🎶</div>
+      <div className="max-w-[800px] mx-auto px-8 relative -mt-12 md:-mt-14">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-white p-2 shadow-xl border border-gray-200 dark:border-gray-800 flex items-center justify-center shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="SVC Logo" className="w-full h-full object-contain" />
+          </div>
+        </div>
         <h1 className="text-[32px] md:text-[40px] font-bold mb-8 text-[#37352f] dark:text-[rgba(255,255,255,0.9)] tracking-tight border-none pb-0 m-0">
           SVC Library
         </h1>

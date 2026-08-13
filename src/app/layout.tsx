@@ -21,6 +21,11 @@ const greatVibes = Great_Vibes({
 export const metadata: Metadata = {
   title: "SVC SONG DIRECTORY",
   description: "SVC Song Directory",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
