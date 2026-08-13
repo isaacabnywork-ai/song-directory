@@ -89,10 +89,11 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
     []
   );
 
-  // On mount: replace initial entry and setup popstate handler
+  // On mount: disable browser scrollRestoration and setup popstate handler
   useEffect(() => {
-    const hash = window.location.hash || '#menu';
-    window.history.replaceState({ view: 'menu' }, '', hash);
+    if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
 
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state as { view?: ViewState; category?: string; songId?: number } | null;
