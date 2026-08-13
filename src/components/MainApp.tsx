@@ -81,16 +81,18 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
       if (playlist !== undefined) setCurrentPlaylist(playlist);
 
       const state = { view, category, songId };
-      window.history.pushState(state, '');
+      const hashUrl = songId ? `#song-${songId}` : category ? `#category-${encodeURIComponent(category)}` : `#${view}`;
+      
+      window.history.pushState(state, '', hashUrl);
       setActiveView(view);
     },
     []
   );
 
-  // On mount: replace the initial history entry with the current state so the
-  // very first back-press from 'menu' still has an entry to pop to.
+  // On mount: replace initial entry and setup popstate handler
   useEffect(() => {
-    window.history.replaceState({ view: 'menu' }, '');
+    const hash = window.location.hash || '#menu';
+    window.history.replaceState({ view: 'menu' }, '', hash);
 
     const handlePopState = (event: PopStateEvent) => {
       const state = event.state as { view?: ViewState; category?: string; songId?: number } | null;
@@ -99,7 +101,6 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
         if (state.category !== undefined) setActiveCategory(state.category);
         if (state.songId !== undefined) setCurrentSongId(state.songId);
       } else {
-        // No more history entries in-app — go back to menu
         setActiveView('menu');
       }
     };
