@@ -61,6 +61,12 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
         if (Array.isArray(data)) setServiceItems(data);
       })
       .catch(console.error);
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => {
+        console.log('ServiceWorker registration failed:', err);
+      });
+    }
   }, []);
 
   useEffect(() => {
