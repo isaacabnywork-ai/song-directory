@@ -1,6 +1,7 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Song } from '@/types';
+import { useAdmin } from '@/context/AdminContext';
 import { ArrowLeft, FolderOpen, MagnifyingGlass, Plus, Lightning, MagnifyingGlassMinus, Books } from '@phosphor-icons/react';
 
 interface DirectoryViewProps {
@@ -33,6 +34,43 @@ const getSongLetter = (title: string): string => {
   return cleanText.charAt(0).toUpperCase() || '?';
 };
 
+const ALPHA_MAP: Record<string, string[]> = {
+  'A-C': ['A', 'B', 'C'],
+  'D-H': ['D', 'E', 'F', 'G', 'H'],
+  'I-M': ['I', 'J', 'K', 'L', 'M'],
+  'N-R': ['N', 'O', 'P', 'Q', 'R'],
+  'S-Z': ['S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'],
+  'D-F': ['D', 'E', 'F'],
+  'G-I': ['G', 'H', 'I'],
+  'J-L': ['J', 'K', 'L'],
+  'M-O': ['M', 'N', 'O'],
+  'P-R': ['P', 'Q', 'R'],
+  'S-U': ['S', 'T', 'U'],
+  'V-Z': ['V', 'W', 'X', 'Y', 'Z'],
+};
+
+const matchSongCategory = (song: Song, selectedCategory: string): boolean => {
+  if (!selectedCategory || selectedCategory === 'All' || selectedCategory === 'Search Results') {
+    return true;
+  }
+
+  // 1. Check if selectedCategory is an alphabetical range key
+  const targetLetters = ALPHA_MAP[selectedCategory];
+  if (targetLetters) {
+    const letter = getSongLetter(song.title);
+    return targetLetters.includes(letter);
+  }
+
+  // 2. Check if selectedCategory is a single letter (e.g. 'A', 'D', 'G', etc.)
+  if (selectedCategory.length === 1 && /[A-Z]/i.test(selectedCategory)) {
+    const letter = getSongLetter(song.title);
+    return letter.toUpperCase() === selectedCategory.toUpperCase();
+  }
+
+  // 3. Otherwise match exact stored category string
+  return song.category === selectedCategory;
+};
+
 const getCategoryFromTitle = (title: string): string => {
   const letter = getSongLetter(title);
   if (['A', 'B', 'C'].includes(letter)) return 'A-C';
@@ -44,20 +82,30 @@ const getCategoryFromTitle = (title: string): string => {
 };
 
 export default function DirectoryView({ songs, category, initialSearch, onBack, onSelectSong, onSongAdded, onUpdateSong }: DirectoryViewProps) {
+  const { isAdmin } = useAdmin();
   const [search, setSearch] = useState(initialSearch);
   const [sort, setSort] = useState<'title' | 'artist' | 'year' | 'frequency'>('title');
   const [localCategory, setLocalCategory] = useState<string>(category);
   const [showPickModal, setShowPickModal] = useState(false);
   const [pickSearch, setPickSearch] = useState('');
 
+  // Sync state when category prop changes from parent navigation
+  useEffect(() => {
+    setLocalCategory(category);
+  }, [category]);
+
   // Compute available categories from all songs
-  const allCategories = useMemo(() => Array.from(new Set(songs.map(s => s.category))), [songs]);
+  const allCategories = useMemo(() => {
+    const defaultAlpha = ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'];
+    const present = Array.from(new Set(songs.map(s => s.category)));
+    return Array.from(new Set([...defaultAlpha, ...present]));
+  }, [songs]);
 
   const filteredSongs = useMemo(() => {
     let list = songs;
     
     if (localCategory && localCategory !== 'Search Results' && localCategory !== 'All') {
-      list = list.filter(s => s.category === localCategory);
+      list = list.filter(s => matchSongCategory(s, localCategory));
     }
     
     if (search) {
@@ -71,8 +119,8 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
         const freqB = b.history?.length || b.sungCount || 0;
         return freqB - freqA;
       }
-      let v1: any = a[sort as keyof Song] ?? '';
-      let v2: any = b[sort as keyof Song] ?? '';
+      let v1: string | number = (a[sort as keyof Song] as string | number) ?? '';
+      let v2: string | number = (b[sort as keyof Song] as string | number) ?? '';
       if (typeof v1 === 'string') v1 = v1.toLowerCase();
       if (typeof v2 === 'string') v2 = v2.toLowerCase();
       if (v1 < v2) return -1;
@@ -155,7 +203,7 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
   }, [categoryStats, songs]);
 
   const isAlphaCategory = useMemo(() => {
-    return ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z', 'All'].includes(localCategory);
+    return ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z', 'All', 'D-F', 'G-I', 'J-L', 'M-O', 'P-R', 'S-U', 'V-Z'].includes(localCategory) || (localCategory.length === 1 && /[A-Z]/i.test(localCategory));
   }, [localCategory]);
 
   const groupedSongs = useMemo(() => {
@@ -205,41 +253,43 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-              <button 
-                onClick={async () => {
-                  const title = prompt('Song Title:');
-                  if (!title) return;
-                  
-                  let categoryToUse = localCategory;
-                  if (categoryToUse === 'All' || categoryToUse === 'Search Results') {
-                    categoryToUse = getCategoryFromTitle(title);
-                  }
-
-                  const res = await fetch('/api/songs', {
-                    method: 'POST',
-                    body: JSON.stringify({ 
-                      title, 
-                      artist: "", 
-                      category: categoryToUse, 
-                      year: new Date().getFullYear() 
-                    }),
-                    headers: { 'Content-Type': 'application/json' }
-                  });
-                  if (res.ok) {
-                    const newSong = await res.json();
-                    if (onSongAdded) {
-                      onSongAdded(newSong);
-                    } else {
-                      window.location.reload();
+              {isAdmin && (
+                <button 
+                  onClick={async () => {
+                    const title = prompt('Song Title:');
+                    if (!title) return;
+                    
+                    let categoryToUse = localCategory;
+                    if (categoryToUse === 'All' || categoryToUse === 'Search Results') {
+                      categoryToUse = getCategoryFromTitle(title);
                     }
-                  } else {
-                    alert('Failed to add song. Please try again.');
-                  }
-                }}
-                className="svc-btn h-10 px-4 flex-shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium border-none flex items-center justify-center gap-2 shadow-sm outline-none"
-              >
-                <Plus weight="bold" /> <span className="whitespace-nowrap">Add Song</span>
-              </button>
+
+                    const res = await fetch('/api/songs', {
+                      method: 'POST',
+                      body: JSON.stringify({ 
+                        title, 
+                        artist: "", 
+                        category: categoryToUse, 
+                        year: new Date().getFullYear() 
+                      }),
+                      headers: { 'Content-Type': 'application/json' }
+                    });
+                    if (res.ok) {
+                      const newSong = await res.json();
+                      if (onSongAdded) {
+                        onSongAdded(newSong);
+                      } else {
+                        window.location.reload();
+                      }
+                    } else {
+                      alert('Failed to add song. Please try again.');
+                    }
+                  }}
+                  className="svc-btn h-10 px-4 flex-shrink-0 bg-black dark:bg-white text-white dark:text-black rounded-lg text-sm font-medium border-none flex items-center justify-center gap-2 shadow-sm outline-none"
+                >
+                  <Plus weight="bold" /> <span className="whitespace-nowrap">Add Song</span>
+                </button>
+              )}
               {localCategory !== 'Search Results' && localCategory !== 'All' && (
                 <button 
                   onClick={() => setShowPickModal(true)}
@@ -270,7 +320,7 @@ export default function DirectoryView({ songs, category, initialSearch, onBack, 
               </select>
               <select 
                 value={sort}
-                onChange={(e) => setSort(e.target.value as any)}
+                onChange={(e) => setSort(e.target.value as 'title' | 'frequency')}
                 className="h-10 px-3 flex-shrink-0 rounded-lg bg-white dark:bg-[#1f1f1f] border border-gray-200 dark:border-[#333] focus:outline-none focus:border-blue-500 text-sm text-black dark:text-white cursor-pointer shadow-sm outline-none"
               >
                 <option value="title">Sort by Title</option>

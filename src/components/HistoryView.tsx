@@ -24,7 +24,7 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
 
   // Helper to get total sung count for a song
   const getSungCount = (song: Song) => {
-    return song.history ? song.history.length : (song.sungCount || 0);
+    return Math.max(song.history?.length || 0, song.sungCount || 0);
   };
 
   // Helper to get frequency class
@@ -527,6 +527,10 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
                           );
                         })}
                       </div>
+                    ) : count > 0 ? (
+                      <span className="px-2 py-0.5 text-[10px] rounded-md font-bold bg-black text-white dark:bg-white dark:text-black shadow-sm flex items-center gap-1">
+                        <Clock size={10} weight="bold" /> Recorded ({count}x)
+                      </span>
                     ) : (
                       <span className="text-[10px] text-gray-400 dark:text-gray-500 italic select-none">
                         No sung history recorded

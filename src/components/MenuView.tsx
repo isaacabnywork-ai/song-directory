@@ -12,11 +12,12 @@ interface MenuViewProps {
 
 export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: MenuViewProps) {
   const alphaCategories = ['A-C', 'D-H', 'I-M', 'N-R', 'S-Z'];
-  const themeCategories = [
+  const themeCategories = Array.from(new Set([
     'Bhajan', 'Praise-Adoration', 'Chorus', 'Gospel', 'Testimony', 
     'Commitment & Calling', 'Prayer', 'Christian Faith & Hope', 
-    'Good Friday', 'Easter', 'Christmas', 'Preaching'
-  ];
+    'Good Friday', 'Easter', 'Christmas', 'Preaching',
+    ...songs.map(s => s.category)
+  ])).filter(cat => !alphaCategories.includes(cat) && cat !== 'All' && cat !== 'Search Results');
   const categories = [...alphaCategories, ...themeCategories];
 
   // Assign a distinct color to each category for the pie chart
@@ -89,7 +90,7 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
       <div className="max-w-[800px] mx-auto px-8 relative -mt-10 md:-mt-12">
         <div className="text-[72px] md:text-[84px] leading-none mb-4 filter drop-shadow-sm select-none">🎶</div>
         <h1 className="text-[32px] md:text-[40px] font-bold mb-8 text-[#37352f] dark:text-[rgba(255,255,255,0.9)] tracking-tight border-none pb-0 m-0">
-          SVC Music Library
+          SVC Library
         </h1>
 
         <div className="mb-8 relative w-full flex items-center">
@@ -109,7 +110,7 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
         <div className="px-4 py-3.5 rounded text-[15px] bg-[#f1f1ef] dark:bg-[#2b2b2b] flex gap-3 mb-8 items-start border border-transparent dark:border-[#373737]">
           <span className="text-lg mt-0.5 select-none">💡</span>
           <p className="text-[#37352f] dark:text-[rgba(255,255,255,0.8)] leading-relaxed m-0">
-            Welcome to online portal of the Music team of Satya Vachan Church, Lucknow. Here you will find all the resources needed to fruitfully contribute to Sunday worship through the ministry of Music.
+            Welcome to the online portal of the SVC Music team. Here you will find all the resources needed to fruitfully contribute to Sunday worship through the ministry of Music.
           </p>
         </div>
 

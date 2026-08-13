@@ -7,6 +7,24 @@ export async function GET() {
       orderBy: { title: 'asc' },
       include: { history: { orderBy: { sungAt: 'desc' } } }
     })
+
+    // Auto-backfill: If any song has sungCount > 0 but history is empty, create a history entry
+    for (const song of songs) {
+      if (song.sungCount > 0 && song.history.length === 0) {
+        try {
+          const created = await prisma.songHistory.create({
+            data: {
+              songId: song.id,
+              sungAt: new Date()
+            }
+          })
+          song.history = [created]
+        } catch (e) {
+          console.error("Error backfilling history for song", song.id, e)
+        }
+      }
+    }
+
     return NextResponse.json(songs)
   } catch (error) {
     console.error("Failed to fetch songs", error)
@@ -30,7 +48,8 @@ export async function POST(request: Request) {
         year: year ? parseInt(year, 10) : new Date().getFullYear(),
         category,
         lyrics: lyrics || null,
-      }
+      },
+      include: { history: { orderBy: { sungAt: 'desc' } } }
     })
     
     return NextResponse.json(newSong, { status: 201 })

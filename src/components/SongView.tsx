@@ -1,9 +1,10 @@
 'use client';
 import React, { useState, useRef } from 'react';
 import { Song } from '@/types';
+import { useAdmin } from '@/context/AdminContext';
 import { 
   ArrowLeft, Minus, Plus, TextAa, PencilSimple, 
-  CalendarPlus, User, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, CaretLeft, CaretRight, Play, Pause, Gauge, CornersOut, CornersIn
+  CalendarPlus, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, CaretLeft, CaretRight, Play, CornersOut, CornersIn
 } from '@phosphor-icons/react';
 
 interface SongViewProps {
@@ -21,6 +22,7 @@ interface SongViewProps {
 }
 
 export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDelete, onNext, onPrev, hasNext, hasPrev, isSunday, onPresentSetlist }: SongViewProps) {
+  const { isAdmin } = useAdmin();
   const [transpose, setTranspose] = useState(0);
   const [fontSize, setFontSize] = useState(18);
   const [showChords, setShowChords] = useState(true);
@@ -71,8 +73,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
   
   // Autoplay state
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(3);
-  const requestRef = useRef<number | null>(null);
+  const [scrollSpeed] = useState(3);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -82,21 +83,22 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
     setTimeout(() => setToast(null), 3000);
   };
 
-  const scrollLoop = React.useCallback(() => {
-    if (isAutoPlaying) {
-      window.scrollBy(0, scrollSpeed * 0.1);
-      requestRef.current = requestAnimationFrame(scrollLoop);
-    }
-  }, [isAutoPlaying, scrollSpeed]);
-
   React.useEffect(() => {
+    let animationFrameId: number;
+    const scrollLoop = () => {
+      if (isAutoPlaying) {
+        window.scrollBy(0, scrollSpeed * 0.1);
+        animationFrameId = requestAnimationFrame(scrollLoop);
+      }
+    };
+
     if (isAutoPlaying) {
-      requestRef.current = requestAnimationFrame(scrollLoop);
+      animationFrameId = requestAnimationFrame(scrollLoop);
     }
     return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
     }
-  }, [isAutoPlaying, scrollLoop]);
+  }, [isAutoPlaying, scrollSpeed]);
 
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -178,7 +180,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
     try {
       await onAddToSunday();
       showToast('Added to Sunday Setlist', 'success');
-    } catch (e) {
+    } catch {
       showToast('Failed to add to setlist', 'error');
     }
   };
@@ -307,7 +309,7 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                   {parts.map((part, partIdx) => {
                     if (part.startsWith('[')) {
                       const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                      let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
+                      const ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
                         let b = m;
                         if (b === 'Bb') b = 'A#';
                         if (b === 'Eb') b = 'D#';
@@ -417,25 +419,29 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                 {isFullscreen ? <><CornersIn weight="bold" /> <span>Exit Fullscreen</span></> : <><CornersOut weight="bold" /> <span>Fullscreen</span></>}
               </button>
 
-              <button 
-                onClick={() => {
-                  setIsEditing(true);
-                  const blocks = parseToBlocks(song.lyrics || '');
-                  if (blocks.length === 0) {
-                    blocks.push({ id: Math.random().toString(), type: 'Verse', content: '' });
-                  }
-                  setEditBlocks(blocks);
-                }}
-                className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1 border-none"
-              >
-                <PencilSimple weight="fill" /> <span>Edit</span>
-              </button>
-              <button 
-                onClick={handleDeleteSong}
-                className="svc-btn px-3 py-1.5 bg-red-50 text-red-600 dark:bg-[rgba(239,68,68,0.1)] dark:text-red-400 text-xs font-semibold rounded hover:bg-red-100 dark:hover:bg-[rgba(239,68,68,0.2)] flex items-center justify-center gap-1 border-none"
-              >
-                <Trash weight="fill" /> <span>Delete</span>
-              </button>
+              {isAdmin && (
+                <>
+                  <button 
+                    onClick={() => {
+                      setIsEditing(true);
+                      const blocks = parseToBlocks(song.lyrics || '');
+                      if (blocks.length === 0) {
+                        blocks.push({ id: Math.random().toString(), type: 'Verse', content: '' });
+                      }
+                      setEditBlocks(blocks);
+                    }}
+                    className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white text-xs font-semibold rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1 border-none"
+                  >
+                    <PencilSimple weight="fill" /> <span>Edit</span>
+                  </button>
+                  <button 
+                    onClick={handleDeleteSong}
+                    className="svc-btn px-3 py-1.5 bg-red-50 text-red-600 dark:bg-[rgba(239,68,68,0.1)] dark:text-red-400 text-xs font-semibold rounded hover:bg-red-100 dark:hover:bg-[rgba(239,68,68,0.2)] flex items-center justify-center gap-1 border-none"
+                  >
+                    <Trash weight="fill" /> <span>Delete</span>
+                  </button>
+                </>
+              )}
             </div>
           )}
           {isEditing && (
@@ -461,13 +467,15 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
             <div>
               <h1 className="text-3xl md:text-4xl font-bold text-[#37352f] dark:text-white tracking-tight leading-tight border-none pb-0 m-0 print:text-black flex items-center gap-2">
                 {song.title}
-                <button 
-                  onClick={handleEditTitle} 
-                  className="svc-btn p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white bg-transparent border-none rounded print:hidden"
-                  title="Edit Title"
-                >
-                  <PencilSimple weight="bold" className="text-xl md:text-2xl" />
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={handleEditTitle} 
+                    className="svc-btn p-1 text-gray-400 hover:text-gray-700 dark:hover:text-white bg-transparent border-none rounded print:hidden"
+                    title="Edit Title"
+                  >
+                    <PencilSimple weight="bold" className="text-xl md:text-2xl" />
+                  </button>
+                )}
               </h1>
               <p className="text-base text-gray-500 font-medium flex items-center gap-2 m-0 mt-2 print:text-gray-700">
                 <span className="flex items-center gap-1 text-xs px-2 py-1 bg-gray-100 dark:bg-[#2b2b2b] rounded text-gray-600 dark:text-gray-300 print:hidden">
@@ -476,29 +484,31 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 shrink-0 print:hidden">
-              <button 
-                onClick={handleAddToSunday}
-                className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-medium rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1.5 text-sm border-none w-full"
-              >
-                <CalendarPlus weight="bold" className="text-base text-[#2684FF] dark:text-[#5e9eff]" /> <span>{isSunday ? 'Added to Sunday' : 'Add to Sunday'}</span>
-              </button>
-              <button 
-                onClick={handleMarkAsSung}
-                className="svc-btn px-3 py-1.5 bg-green-50 dark:bg-[rgba(34,197,94,0.1)] text-green-600 dark:text-green-400 font-medium rounded hover:bg-green-100 dark:hover:bg-[rgba(34,197,94,0.2)] flex items-center justify-center gap-1.5 text-sm border-none w-full"
-              >
-                <CheckCircle weight="bold" className="text-base" /> <span>Mark as Sung</span>
-              </button>
-              
-              {song.history && song.history.length > 0 && (
-                <div className="mt-2 text-xs text-gray-500 bg-gray-50 dark:bg-[#1f1f1f] p-2 rounded max-h-32 overflow-y-auto">
-                  <div className="font-semibold mb-1">Sung History:</div>
-                  {song.history.map(h => (
-                    <div key={h.id}>{new Date(h.sungAt).toLocaleDateString()}</div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {isAdmin && (
+              <div className="flex flex-col gap-2 shrink-0 print:hidden">
+                <button 
+                  onClick={handleAddToSunday}
+                  className="svc-btn px-3 py-1.5 bg-[#f1f1ef] dark:bg-[#2b2b2b] text-[#37352f] dark:text-white font-medium rounded hover:bg-gray-200 dark:hover:bg-[#373737] flex items-center justify-center gap-1.5 text-sm border-none w-full"
+                >
+                  <CalendarPlus weight="bold" className="text-base text-[#2684FF] dark:text-[#5e9eff]" /> <span>{isSunday ? 'Added to Sunday' : 'Add to Sunday'}</span>
+                </button>
+                <button 
+                  onClick={handleMarkAsSung}
+                  className="svc-btn px-3 py-1.5 bg-green-50 dark:bg-[rgba(34,197,94,0.1)] text-green-600 dark:text-green-400 font-medium rounded hover:bg-green-100 dark:hover:bg-[rgba(34,197,94,0.2)] flex items-center justify-center gap-1.5 text-sm border-none w-full"
+                >
+                  <CheckCircle weight="bold" className="text-base" /> <span>Mark as Sung</span>
+                </button>
+                
+                {song.history && song.history.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 dark:bg-[#1f1f1f] p-2 rounded max-h-32 overflow-y-auto">
+                    <div className="font-semibold mb-1">Sung History:</div>
+                    {song.history.map(h => (
+                      <div key={h.id}>{new Date(h.sungAt).toLocaleDateString()}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -518,14 +528,18 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                   <DownloadSimple weight="bold" /> Download Audio
                 </a>
               )}
-              <input type="file" accept="audio/*" ref={fileInputRef} className="hidden" onChange={handleUploadAudio} />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="svc-btn text-xs px-3 py-1.5 bg-blue-50 text-blue-600 dark:bg-[rgba(38,132,255,0.15)] dark:text-[#5e9eff] rounded hover:bg-blue-100 flex items-center gap-1 border-none"
-              >
-                <UploadSimple weight="bold" /> {isUploading ? 'Uploading...' : (song.audioUrl ? 'Replace Audio' : 'Upload Audio')}
-              </button>
+              {isAdmin && (
+                <>
+                  <input type="file" accept="audio/*" ref={fileInputRef} className="hidden" onChange={handleUploadAudio} />
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="svc-btn text-xs px-3 py-1.5 bg-blue-50 text-blue-600 dark:bg-[rgba(38,132,255,0.15)] dark:text-[#5e9eff] rounded hover:bg-blue-100 flex items-center gap-1 border-none"
+                  >
+                    <UploadSimple weight="bold" /> {isUploading ? 'Uploading...' : (song.audioUrl ? 'Replace Audio' : 'Upload Audio')}
+                  </button>
+                </>
+              )}
             </div>
           </div>
           {song.audioUrl ? (

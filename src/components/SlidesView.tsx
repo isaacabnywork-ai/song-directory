@@ -74,7 +74,7 @@ export default function SlidesView({ songs, onClose }: SlidesViewProps) {
           {parts.map((part, partIdx) => {
             if (part.startsWith('[')) {
               const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-              let ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
+              const ch = part.slice(1, -1).replace(/([A-G][#b]?)/g, (m) => {
                 let b = m;
                 if (b === 'Bb') b = 'A#';
                 if (b === 'Eb') b = 'D#';
