@@ -33,10 +33,10 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const login = (email: string, password: string): boolean => {
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'svcdirectory@gmail.com';
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'onlyonelife';
 
-    if (adminEmail && adminPassword && email === adminEmail && password === adminPassword) {
+    if (email.trim().toLowerCase() === adminEmail.trim().toLowerCase() && password === adminPassword) {
       setIsAdmin(true);
       localStorage.setItem(STORAGE_KEY, 'true');
       setShowLoginModal(false);
