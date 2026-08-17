@@ -13,9 +13,10 @@ import PlannerView from './PlannerView';
 import SlidesView from './SlidesView';
 import HistoryView from './HistoryView';
 import ServiceOrderView from './ServiceOrderView';
+import KeywordSearchView from './KeywordSearchView';
 import { Moon, Sun, MagnifyingGlass, X } from '@phosphor-icons/react';
 
-type ViewState = 'menu' | 'directory' | 'song' | 'planner' | 'slides' | 'history' | 'service-order';
+type ViewState = 'menu' | 'directory' | 'song' | 'planner' | 'slides' | 'history' | 'service-order' | 'keyword-search';
 
 export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
   const [songs, setSongs] = useState<Song[]>(initialSongs);
@@ -46,8 +47,15 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
     return songs.filter(s => s.title.toLowerCase().includes(q) || s.category.toLowerCase().includes(q)).slice(0, 10);
   }, [songs, quickSearchQuery]);
   
-  // Load sunday songs and service items from DB on mount
+  // Load songs with history, sunday songs and service items from DB on mount
   useEffect(() => {
+    fetch('/api/songs')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) setSongs(data);
+      })
+      .catch(console.error);
+
     fetch('/api/setlist')
       .then(res => res.json())
       .then(data => {
@@ -361,7 +369,33 @@ export default function MainApp({ initialSongs }: { initialSongs: Song[] }) {
           <HistoryView 
             songs={songs}
             onBack={() => navigateTo('menu')}
+            onSelectSong={handleOpenSongFromId}
             onResetHistory={handleResetHistory}
+          />
+        )}
+
+        {activeView === 'keyword-search' && (
+          <KeywordSearchView
+            songs={songs}
+            onBack={() => navigateTo('menu')}
+            onSelectSong={(id, list) => {
+              if (list) setCurrentPlaylist(list);
+              navigateTo('song', undefined, id);
+            }}
+            onAddToSunday={async (songId) => {
+              if (!sundaySongs.find(s => s.id === songId)) {
+                const res = await fetch('/api/setlist', {
+                  method: 'POST',
+                  body: JSON.stringify({ songId }),
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                  const updatedList = await res.json();
+                  setSundaySongs(updatedList);
+                }
+              }
+            }}
+            sundaySongIds={sundaySongs.map(s => s.id)}
           />
         )}
         

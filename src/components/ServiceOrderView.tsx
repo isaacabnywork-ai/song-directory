@@ -1,7 +1,11 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Song, ServiceItem } from '@/types';
-import { ArrowLeft, Plus, TextH, CaretUp, CaretDown, Trash, Printer, ListPlus, CalendarStar, FloppyDisk, ClockCounterClockwise, CaretRight, Folder, FolderOpen } from '@phosphor-icons/react';
+import { 
+  ArrowLeft, Plus, TextH, CaretUp, CaretDown, Trash, Printer, 
+  ListPlus, CalendarStar, FloppyDisk, ClockCounterClockwise, CaretRight, 
+  Folder, FolderOpen, ArrowUUpLeft, ArrowUUpRight
+} from '@phosphor-icons/react';
 
 const EditableCell = ({ value, onChange, placeholder, className = '' }: { value: string, onChange: (v: string) => void, placeholder?: string, className?: string }) => (
   <div className="relative w-full h-full min-h-[40px]">
@@ -33,6 +37,72 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
   const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Undo & Redo Stacks
+  const undoStackRef = useRef<ServiceItem[][]>([]);
+  const redoStackRef = useRef<ServiceItem[][]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const cellEditTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cellSnapshotTakenRef = useRef(false);
+
+  const updateUndoRedoState = useCallback(() => {
+    setCanUndo(undoStackRef.current.length > 0);
+    setCanRedo(redoStackRef.current.length > 0);
+  }, []);
+
+  const pushState = useCallback((prevItems: ServiceItem[], nextItems: ServiceItem[]) => {
+    // Clone before pushing to avoid reference mutation
+    undoStackRef.current.push(JSON.parse(JSON.stringify(prevItems)));
+    if (undoStackRef.current.length > 50) {
+      undoStackRef.current.shift();
+    }
+    redoStackRef.current = [];
+    setLocalItems(nextItems);
+    updateUndoRedoState();
+    if (onServiceItemsChange) onServiceItemsChange(nextItems);
+  }, [onServiceItemsChange, updateUndoRedoState]);
+
+  const handleUndo = useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+    const previous = undoStackRef.current.pop()!;
+    redoStackRef.current.push(JSON.parse(JSON.stringify(localItems)));
+    setLocalItems(previous);
+    updateUndoRedoState();
+    if (onServiceItemsChange) onServiceItemsChange(previous);
+  }, [localItems, onServiceItemsChange, updateUndoRedoState]);
+
+  const handleRedo = useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+    const next = redoStackRef.current.pop()!;
+    undoStackRef.current.push(JSON.parse(JSON.stringify(localItems)));
+    setLocalItems(next);
+    updateUndoRedoState();
+    if (onServiceItemsChange) onServiceItemsChange(next);
+  }, [localItems, onServiceItemsChange, updateUndoRedoState]);
+
+  // Keyboard shortcut listener for Ctrl+Z and Ctrl+Y / Cmd+Shift+Z
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+
+      if (cmdOrCtrl && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if (cmdOrCtrl && e.key.toLowerCase() === 'y') {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
+
   const getNextSundayDate = () => {
     const d = new Date();
     d.setDate(d.getDate() + (7 - d.getDay()) % 7);
@@ -43,7 +113,9 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
   const [selectedDate, setSelectedDate] = useState<Date>(getNextSundayDate());
 
   useEffect(() => {
-    setLocalItems(serviceItems || []);
+    if (serviceItems) {
+      setLocalItems(serviceItems);
+    }
   }, [serviceItems]);
 
   useEffect(() => {
@@ -72,6 +144,19 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
   }, [serviceHistory]);
 
   const updateItem = (index: number, field: keyof ServiceItem, value: any) => {
+    if (!cellSnapshotTakenRef.current) {
+      undoStackRef.current.push(JSON.parse(JSON.stringify(localItems)));
+      if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+      redoStackRef.current = [];
+      updateUndoRedoState();
+      cellSnapshotTakenRef.current = true;
+    }
+
+    if (cellEditTimeoutRef.current) clearTimeout(cellEditTimeoutRef.current);
+    cellEditTimeoutRef.current = setTimeout(() => {
+      cellSnapshotTakenRef.current = false;
+    }, 1200);
+
     const newItems = [...localItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setLocalItems(newItems);
@@ -80,20 +165,17 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
 
   const addRow = () => {
     const newItems = [...localItems, { startTime: '', endTime: '', event: '', responsible: '', content: '', isHeader: false, order: localItems.length }];
-    setLocalItems(newItems);
-    if (onServiceItemsChange) onServiceItemsChange(newItems);
+    pushState(localItems, newItems);
   };
 
   const addHeaderRow = () => {
     const newItems = [...localItems, { startTime: '', endTime: '', event: 'New Section', responsible: '', content: '', isHeader: true, order: localItems.length }];
-    setLocalItems(newItems);
-    if (onServiceItemsChange) onServiceItemsChange(newItems);
+    pushState(localItems, newItems);
   };
 
   const removeRow = (index: number) => {
     const newItems = localItems.filter((_, i) => i !== index);
-    setLocalItems(newItems);
-    if (onServiceItemsChange) onServiceItemsChange(newItems);
+    pushState(localItems, newItems);
   };
 
   const moveRow = (index: number, direction: 1 | -1) => {
@@ -102,8 +184,7 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
     const temp = newItems[index];
     newItems[index] = newItems[index + direction];
     newItems[index + direction] = temp;
-    setLocalItems(newItems);
-    if (onServiceItemsChange) onServiceItemsChange(newItems);
+    pushState(localItems, newItems);
   };
 
   const handlePrint = () => {
@@ -219,17 +300,53 @@ export default function ServiceOrderView({ songs, serviceItems, onServiceItemsCh
           <table className="w-full text-sm text-left border-collapse print:text-black">
             <thead>
               <tr>
-                <th colSpan={6} className="px-4 py-2 text-center font-bold text-lg border border-gray-300 dark:border-[#444] print:border-black print:text-black">
-                  <span className="print:inline hidden">{selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                  <input 
-                    type="date" 
-                    value={selectedDate.toISOString().split('T')[0]} 
-                    onChange={(e) => {
-                      const d = new Date(e.target.value);
-                      if (!isNaN(d.getTime())) setSelectedDate(d);
-                    }}
-                    className="bg-transparent border-none text-center font-bold text-lg outline-none cursor-pointer hover:bg-gray-100 dark:hover:bg-[#222] rounded px-2 py-1 print:hidden mx-auto inline-block text-black dark:text-white"
-                  />
+                <th colSpan={6} className="relative px-4 py-2.5 text-center font-bold text-lg border border-gray-300 dark:border-[#444] print:border-black print:text-black">
+                  {/* Left corner: Undo & Redo controls */}
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center gap-1 print:hidden">
+                    <button
+                      type="button"
+                      onClick={handleUndo}
+                      disabled={!canUndo}
+                      title="Undo (Ctrl+Z)"
+                      className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+                        canUndo
+                          ? 'bg-gray-100 hover:bg-gray-200 dark:bg-[#282828] dark:hover:bg-[#333] text-gray-800 dark:text-gray-200 border-gray-300 dark:border-[#3a3a3a] shadow-xs active:scale-95 cursor-pointer'
+                          : 'bg-transparent text-gray-300 dark:text-gray-600 border-transparent cursor-not-allowed opacity-40'
+                      }`}
+                    >
+                      <ArrowUUpLeft weight="bold" className="text-base" />
+                      <span className="hidden sm:inline">Undo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleRedo}
+                      disabled={!canRedo}
+                      title="Redo (Ctrl+Y / Cmd+Shift+Z)"
+                      className={`px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1.5 text-xs font-semibold ${
+                        canRedo
+                          ? 'bg-gray-100 hover:bg-gray-200 dark:bg-[#282828] dark:hover:bg-[#333] text-gray-800 dark:text-gray-200 border-gray-300 dark:border-[#3a3a3a] shadow-xs active:scale-95 cursor-pointer'
+                          : 'bg-transparent text-gray-300 dark:text-gray-600 border-transparent cursor-not-allowed opacity-40'
+                      }`}
+                    >
+                      <ArrowUUpRight weight="bold" className="text-base" />
+                      <span className="hidden sm:inline">Redo</span>
+                    </button>
+                  </div>
+
+                  {/* Centered Date */}
+                  <div className="inline-flex items-center justify-center">
+                    <span className="print:inline hidden">{selectedDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    <input 
+                      type="date" 
+                      value={selectedDate.toISOString().split('T')[0]} 
+                      onChange={(e) => {
+                        const d = new Date(e.target.value);
+                        if (!isNaN(d.getTime())) setSelectedDate(d);
+                      }}
+                      className="bg-transparent border-none text-center font-bold text-lg outline-none cursor-pointer hover:bg-gray-100 dark:hover:bg-[#222] rounded px-2 py-1 print:hidden mx-auto inline-block text-black dark:text-white"
+                    />
+                  </div>
                 </th>
               </tr>
               <tr className="bg-gray-50 dark:bg-[#222] print:bg-white text-black dark:text-gray-300 print:text-black">

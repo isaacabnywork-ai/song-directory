@@ -30,7 +30,7 @@ const THEME_CATEGORIES = [
 ];
 
 interface BottomNavProps {
-  onNavigate: (view: 'menu' | 'directory' | 'planner' | 'history' | 'service-order', category?: string) => void;
+  onNavigate: (view: 'menu' | 'directory' | 'planner' | 'history' | 'service-order' | 'keyword-search', category?: string) => void;
   onOpenSearch: () => void;
   onOpenSidebar: () => void;
   activeView: string;
@@ -114,6 +114,25 @@ export default function BottomNav({
                       )}
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">View setlist and present slides</p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Keyword Search */}
+              <button
+                onClick={() => {
+                  setShowToolsSheet(false);
+                  onNavigate('keyword-search');
+                }}
+                className="w-full text-left p-3.5 rounded-xl bg-gray-50 dark:bg-[#1a1a1a] hover:bg-gray-100 dark:hover:bg-[#2a2a2a] flex items-center justify-between transition-colors border border-gray-200/60 dark:border-[#333]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                    <MagnifyingGlass className="text-xl" weight="bold" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">Keyword Search</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Search lyrics across all songs by theme/word</p>
                   </div>
                 </div>
               </button>

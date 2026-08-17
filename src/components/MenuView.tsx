@@ -4,7 +4,7 @@ import { MagnifyingGlass, Folder, CalendarStar, FileDoc, ChartBar, ChartPieSlice
 import { Song } from '@/types';
 
 interface MenuViewProps {
-  onNavigate: (view: 'directory' | 'planner' | 'history' | 'service-order', category?: string) => void;
+  onNavigate: (view: 'directory' | 'planner' | 'history' | 'service-order' | 'keyword-search', category?: string) => void;
   onSearch: (query: string) => void;
   sundayCount: number;
   songs: Song[];
@@ -181,6 +181,15 @@ export default function MenuView({ onNavigate, onSearch, sundayCount, songs }: M
                 {sundayCount}
               </span>
             )}
+          </button>
+
+          <button 
+            onClick={() => onNavigate('keyword-search')}
+            className="svc-btn w-full flex items-center justify-between px-3 py-2 rounded text-[15px] text-[#37352f] dark:text-[rgba(255,255,255,0.8)] hover:bg-gray-100 dark:hover:bg-[#2c2c2c] transition-colors border-none bg-transparent"
+          >
+            <div className="flex items-center gap-2.5">
+              <MagnifyingGlass weight="bold" className="text-[18px] text-amber-500" /> Keyword Search
+            </div>
           </button>
 
           <button 

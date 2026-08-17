@@ -5,7 +5,7 @@ import { Song } from '@/types';
 import { useAdmin } from '@/context/AdminContext';
 import { 
   X, CaretDown, CaretRight, CaretLeft, MusicNote, LockKey, LockKeyOpen, 
-  Folder, House, ListDashes, CalendarStar, ChartBar, FileDoc, Wrench, MusicNotes
+  Folder, House, ListDashes, CalendarStar, ChartBar, FileDoc, Wrench, MusicNotes, MagnifyingGlass
 } from '@phosphor-icons/react';
 
 interface SidebarProps {
@@ -14,7 +14,7 @@ interface SidebarProps {
   songs: Song[];
   onSelectSong: (id: number) => void;
   onNavigateHome: () => void;
-  onNavigate?: (view: 'menu' | 'directory' | 'planner' | 'history' | 'service-order', category?: string) => void;
+  onNavigate?: (view: 'menu' | 'directory' | 'planner' | 'history' | 'service-order' | 'keyword-search', category?: string) => void;
   sundayCount?: number;
   // desktop collapsed state is managed by MainApp
   isDesktopCollapsed?: boolean;
@@ -97,6 +97,7 @@ export default function Sidebar({
     { icon: <House weight="fill" className="text-blue-500" />, label: 'Library Home', onClick: () => { onNavigateHome(); onClose(); } },
     { icon: <ListDashes weight="fill" className="text-purple-500" />, label: 'Order of Service', onClick: () => { onNavigate('service-order'); onClose(); } },
     { icon: <CalendarStar weight="fill" className="text-blue-500" />, label: "This Sunday's Songs", badge: sundayCount, onClick: () => { onNavigate('planner'); onClose(); } },
+    { icon: <MagnifyingGlass weight="bold" className="text-amber-500" />, label: 'Keyword Search', onClick: () => { onNavigate('keyword-search'); onClose(); } },
     { icon: <ChartBar weight="fill" className="text-emerald-500" />, label: 'Frequency of Songs', onClick: () => { onNavigate('history'); onClose(); } },
   ] : [
     { icon: <House weight="fill" className="text-blue-500" />, label: 'Library Home', onClick: () => { onNavigateHome(); onClose(); } },
@@ -330,6 +331,16 @@ export default function Sidebar({
                       {sundayCount}
                     </span>
                   )}
+                </button>
+
+                <button
+                  onClick={() => { onNavigate('keyword-search'); onClose(); }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MagnifyingGlass className="text-base text-amber-500 shrink-0" weight="bold" />
+                    <span>Keyword Search</span>
+                  </div>
                 </button>
 
                 <button

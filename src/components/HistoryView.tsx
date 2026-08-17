@@ -2,20 +2,30 @@
 import { useState, useMemo } from 'react';
 import { Song } from '@/types';
 import { 
-  ArrowLeft, MagnifyingGlass, Funnel, Clock, CalendarStar, ChartBar, ChartPieSlice, ListDashes, Trash
+  ArrowLeft, MagnifyingGlass, Funnel, Clock, CalendarStar, ChartBar, 
+  ChartPieSlice, ListDashes, Trash, CaretDown, CaretUp, ArrowSquareOut
 } from '@phosphor-icons/react';
 
 interface HistoryViewProps {
   songs: Song[];
   onBack: () => void;
+  onSelectSong?: (id: number) => void;
   onResetHistory?: () => void;
 }
 
-export default function HistoryView({ songs, onBack, onResetHistory }: HistoryViewProps) {
+export default function HistoryView({ songs, onBack, onSelectSong, onResetHistory }: HistoryViewProps) {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [frequencyFilter, setFrequencyFilter] = useState<'All' | 'Never' | 'Rare' | 'Occasional' | 'Frequent'>('All');
   const [sort, setSort] = useState<'natural' | 'most_sung' | 'least_sung' | 'most_overdue' | 'most_recent' | 'name'>('natural');
+  const [expandedDates, setExpandedDates] = useState<Record<number, boolean>>({});
+
+  const toggleSongDates = (songId: number) => {
+    setExpandedDates(prev => ({
+      ...prev,
+      [songId]: !prev[songId]
+    }));
+  };
 
   // Compute categories dynamically
   const categories = useMemo(() => {
@@ -139,10 +149,11 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
     return getSungCount(topSongs[0]);
   }, [topSongs]);
 
-  // Format date helper
+  // Format date helper (e.g. 13 Mar 2024)
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const getDotColor = (count: number) => {
@@ -471,15 +482,19 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
               const count = getSungCount(song);
               const isBold = count >= 6;
               const hasHistory = song.history && song.history.length > 0;
+              const isExpanded = !!expandedDates[song.id];
+              const historyList = song.history || [];
+              const visibleHistory = isExpanded ? historyList : historyList.slice(0, 3);
+              const hasMoreDates = historyList.length > 3;
               
               return (
                 <div 
                   key={song.id}
-                  className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#2d2d2d] rounded-xl p-4 shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-white dark:bg-[#191919] border border-gray-200 dark:border-[#2d2d2d] hover:border-gray-300 dark:hover:border-[#383838] rounded-xl p-4 shadow-sm transition-all flex flex-col md:flex-row md:items-start justify-between gap-4"
                 >
-                  <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
                     {/* Index or status indicator dot */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 pt-0.5">
                       <span className="text-[11px] font-mono text-gray-400 dark:text-gray-500 w-5 text-right select-none">
                         {index + 1}
                       </span>
@@ -487,9 +502,17 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <h3 className={`text-[15px] text-black dark:text-white m-0 leading-tight ${isBold ? 'font-black' : 'font-normal'}`}>
-                        {song.title}
-                      </h3>
+                      {/* Hyperlinked Song Title */}
+                      <button
+                        onClick={() => onSelectSong?.(song.id)}
+                        className="text-left group flex items-baseline gap-1.5 p-0 bg-transparent border-none cursor-pointer"
+                        title="Click to view song lyrics and chords"
+                      >
+                        <h3 className={`text-[15px] text-black dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:underline transition-colors m-0 leading-tight ${isBold ? 'font-black' : 'font-semibold'}`}>
+                          {song.title}
+                        </h3>
+                        <ArrowSquareOut className="text-xs text-gray-400 group-hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      </button>
                     </div>
                   </div>
 
@@ -507,25 +530,43 @@ export default function HistoryView({ songs, onBack, onResetHistory }: HistoryVi
                       </span>
                     </div>
 
-                    {/* Date history list */}
+                    {/* Date history list with expandable dropdown */}
                     {hasHistory ? (
-                      <div className="flex flex-wrap md:justify-end gap-1.5 max-w-sm md:max-w-md">
-                        {song.history!.map((h, i) => {
-                          const isLatest = i === 0;
-                          return (
-                            <span 
-                              key={h.id}
-                              className={`px-2 py-0.5 text-[10px] rounded-md font-medium tracking-wide flex items-center gap-1 transition-colors ${
-                                isLatest 
-                                  ? 'bg-black text-white dark:bg-white dark:text-black shadow-sm font-bold' 
-                                  : 'bg-gray-100 text-gray-600 dark:bg-[#282828] dark:text-gray-400 border border-gray-200 dark:border-gray-800'
-                              }`}
+                      <div className="flex flex-col md:items-end gap-1.5">
+                        <div className="flex flex-wrap md:justify-end gap-1.5 max-w-sm md:max-w-md transition-all duration-300">
+                          {visibleHistory.map((h, i) => {
+                            const isLatest = i === 0;
+                            return (
+                              <span 
+                                key={h.id}
+                                className={`px-2 py-0.5 text-[10px] rounded-md font-medium tracking-wide flex items-center gap-1 transition-colors ${
+                                  isLatest 
+                                    ? 'bg-black text-white dark:bg-white dark:text-black shadow-sm font-bold' 
+                                    : 'bg-gray-100 text-gray-600 dark:bg-[#282828] dark:text-gray-400 border border-gray-200 dark:border-gray-800'
+                                }`}
+                              >
+                                {isLatest && <Clock size={10} weight="bold" />}
+                                {formatDate(h.sungAt)}
+                              </span>
+                            );
+                          })}
+
+                          {/* Expand / Collapse Dropdown Button */}
+                          {hasMoreDates && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSongDates(song.id);
+                              }}
+                              className="svc-btn px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/60 dark:border-blue-800/40 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              title={isExpanded ? "Collapse dates" : `Show all ${historyList.length} dates`}
                             >
-                              {isLatest && <Clock size={10} weight="bold" />}
-                              {formatDate(h.sungAt)}
-                            </span>
-                          );
-                        })}
+                              <span>{isExpanded ? 'Show less' : `+${historyList.length - 3} more`}</span>
+                              {isExpanded ? <CaretUp size={10} weight="bold" /> : <CaretDown size={10} weight="bold" />}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ) : count > 0 ? (
                       <span className="px-2 py-0.5 text-[10px] rounded-md font-bold bg-black text-white dark:bg-white dark:text-black shadow-sm flex items-center gap-1">

@@ -4,7 +4,8 @@ import { Song } from '@/types';
 import { useAdmin } from '@/context/AdminContext';
 import { 
   ArrowLeft, Minus, Plus, TextAa, PencilSimple, 
-  CalendarPlus, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, CaretLeft, CaretRight, Play, CornersOut, CornersIn
+  CalendarPlus, CheckCircle, UploadSimple, DownloadSimple, MusicNote, Trash, Printer, 
+  CaretLeft, CaretRight, Play, CornersOut, CornersIn, CalendarBlank, X, Clock
 } from '@phosphor-icons/react';
 
 interface SongViewProps {
@@ -158,21 +159,71 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
     }
   };
 
-  const handleMarkAsSung = async () => {
+  // Mark as sung modal state
+  const [showMarkModal, setShowMarkModal] = useState(false);
+  const [markDate, setMarkDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [isMarking, setIsMarking] = useState(false);
+
+  // Compute last Sunday
+  const getLastSunday = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day === 0 ? 7 : day;
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().split('T')[0];
+  };
+
+  const getPreviousSunday = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = (day === 0 ? 7 : day) + 7;
+    d.setDate(d.getDate() - diff);
+    return d.toISOString().split('T')[0];
+  };
+
+  const handleConfirmMarkAsSung = async () => {
+    if (!markDate) return;
+    setIsMarking(true);
     try {
       const res = await fetch(`/api/history`, {
         method: 'POST',
-        body: JSON.stringify({ songId: song.id }),
+        body: JSON.stringify({ 
+          songId: song.id, 
+          sungAt: new Date(markDate + 'T10:00:00').toISOString() 
+        }),
         headers: { 'Content-Type': 'application/json' }
       });
       if (res.ok) {
         const updated = await res.json();
         onUpdate(updated);
-        showToast('Song marked as sung!', 'success');
+        setShowMarkModal(false);
+        showToast(`Marked as sung on ${new Date(markDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}!`, 'success');
+      } else {
+        showToast('Failed to mark as sung', 'error');
       }
     } catch (e) {
       console.error(e);
       showToast('Failed to mark as sung', 'error');
+    } finally {
+      setIsMarking(false);
+    }
+  };
+
+  const handleDeleteHistoryItem = async (historyId: number) => {
+    try {
+      const res = await fetch(`/api/history?historyId=${historyId}`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.song) {
+          onUpdate(data.song);
+          showToast('History date removed', 'success');
+        }
+      } else {
+        showToast('Failed to delete history record', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to delete history record', 'error');
     }
   };
 
@@ -493,18 +544,37 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
                   <CalendarPlus weight="bold" className="text-base text-[#2684FF] dark:text-[#5e9eff]" /> <span>{isSunday ? 'Added to Sunday' : 'Add to Sunday'}</span>
                 </button>
                 <button 
-                  onClick={handleMarkAsSung}
+                  onClick={() => {
+                    setMarkDate(new Date().toISOString().split('T')[0]);
+                    setShowMarkModal(true);
+                  }}
                   className="svc-btn px-3 py-1.5 bg-green-50 dark:bg-[rgba(34,197,94,0.1)] text-green-600 dark:text-green-400 font-medium rounded hover:bg-green-100 dark:hover:bg-[rgba(34,197,94,0.2)] flex items-center justify-center gap-1.5 text-sm border-none w-full"
                 >
-                  <CheckCircle weight="bold" className="text-base" /> <span>Mark as Sung</span>
+                  <CalendarBlank weight="bold" className="text-base" /> <span>Mark as Sung</span>
                 </button>
                 
                 {song.history && song.history.length > 0 && (
-                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 dark:bg-[#1f1f1f] p-2 rounded max-h-32 overflow-y-auto">
-                    <div className="font-semibold mb-1">Sung History:</div>
-                    {song.history.map(h => (
-                      <div key={h.id}>{new Date(h.sungAt).toLocaleDateString()}</div>
-                    ))}
+                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 dark:bg-[#1f1f1f] p-2.5 rounded-xl border border-gray-200 dark:border-[#2d2d2d] max-h-36 overflow-y-auto">
+                    <div className="font-bold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center justify-between">
+                      <span>Sung History ({song.history.length}x):</span>
+                    </div>
+                    <div className="space-y-1">
+                      {song.history.map(h => (
+                        <div key={h.id} className="flex items-center justify-between text-[11px] py-0.5 text-gray-600 dark:text-gray-400 border-b border-gray-100 dark:border-[#282828] last:border-none">
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {new Date(h.sungAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                          <button
+                            onClick={() => handleDeleteHistoryItem(h.id)}
+                            className="text-red-400 hover:text-red-600 p-0.5"
+                            title="Delete this date"
+                          >
+                            <Trash size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -654,6 +724,117 @@ export default function SongView({ song, onBack, onAddToSunday, onUpdate, onDele
           </div>
         )}
       </div>
+
+      {/* Mark As Sung Date Picker Modal */}
+      {showMarkModal && (
+        <div 
+          className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setShowMarkModal(false)}
+        >
+          <div 
+            className="w-full max-w-md bg-white dark:bg-[#202020] rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-[#333] animate-scaleUp"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-[#333] mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 flex items-center justify-center">
+                  <CalendarBlank weight="fill" className="text-xl" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900 dark:text-white leading-tight m-0">
+                    Mark as Sung
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[220px] m-0">
+                    {song.title}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMarkModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-[#2c2c2c]"
+              >
+                <X className="text-lg" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                  Select Service Date
+                </label>
+                <input 
+                  type="date"
+                  value={markDate}
+                  onChange={(e) => setMarkDate(e.target.value)}
+                  className="w-full h-12 px-4 rounded-xl bg-gray-50 dark:bg-[#181818] border border-gray-300 dark:border-[#3a3a3a] text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer shadow-inner"
+                />
+              </div>
+
+              {/* Quick Date Presets */}
+              <div>
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-1.5">
+                  Quick Pick:
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMarkDate(new Date().toISOString().split('T')[0])}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      markDate === new Date().toISOString().split('T')[0]
+                        ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                        : 'bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-[#333] text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMarkDate(getLastSunday())}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      markDate === getLastSunday()
+                        ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                        : 'bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-[#333] text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    Last Sunday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMarkDate(getPreviousSunday())}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors ${
+                      markDate === getPreviousSunday()
+                        ? 'bg-green-50 border-green-500 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                        : 'bg-gray-50 dark:bg-[#181818] border-gray-200 dark:border-[#333] text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    2 Wks Ago
+                  </button>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-3 border-t border-gray-100 dark:border-[#333]">
+                <button
+                  type="button"
+                  onClick={() => setShowMarkModal(false)}
+                  className="flex-1 py-3 rounded-xl border border-gray-300 dark:border-[#3a3a3a] text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2c2c2c] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmMarkAsSung}
+                  disabled={isMarking || !markDate}
+                  className="flex-1 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <CheckCircle weight="bold" className="text-lg" />
+                  <span>{isMarking ? 'Saving...' : 'Confirm & Record'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 text-sm font-medium transition-all duration-300 ${toast.type === 'success' ? 'bg-[#22c55e] text-white' : 'bg-red-500 text-white'}`}>
